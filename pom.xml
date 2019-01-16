@@ -27,7 +27,7 @@
 
     <groupId>org.glassfish.build</groupId>
     <artifactId>command-security-maven-plugin</artifactId>
-    <version>1.0.10-SNAPSHOT</version>
+    <version>1.0.10</version>
     <packaging>maven-plugin</packaging>
 
     <name>Command Security Plug-in</name>
