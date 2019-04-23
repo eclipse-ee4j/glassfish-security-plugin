@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019 Payara Services Ltd.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -16,20 +17,19 @@
 
 package org.glassfish.module.maven.commandsecurityplugin;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Developer;
-import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 
 /**
@@ -43,28 +43,21 @@ import org.apache.maven.project.MavenProject;
  * classes known not to be commands in the maven session. 
  * 
  * @author tjquinn
- * @goal check
- * @threadSafe
- * @phase process-classes
- * @requiresProject
- * @requiresDependencyResolution compile+runtime
  */
+@Mojo(name="check", threadSafe=true, defaultPhase=LifecyclePhase.PROCESS_CLASSES, requiresDependencyResolution=ResolutionScope.COMPILE_PLUS_RUNTIME)
 public class CheckMojo extends CommonMojo {
+    
     /**
      * Whether failures are fatal to the build.
-     * @parameter
-     *   expression="${command-security-maven-plugin.isFailureFatal}"
-     *   default-value="true"
      */
+    @Parameter(property="command-security-maven-plugin.isFailureFatal", defaultValue="true")
     private String isFailureFatal;
     
     /**
      * Path to which to print a violation summary wiki table.  If empty,
      * print no table.
-     * @parameter
-     *   expression="${command-security-maven-plugin.violationWikiPath}"
-     *   default-value=""
      */
+    @Parameter(property="command-security-maven-plugin.violationWikiPath", defaultValue="")
     protected String violationWikiPath;
     
     /**
@@ -72,11 +65,8 @@ public class CheckMojo extends CommonMojo {
      * 
      * The format is (moduleId).owner=(owner name)
      *               (moduleId).notes=(notes) - if any
-     * 
-     * @parameter 
-     *   expression="${command-security-maven-plugin.moduleInfoPath}"
-     *   default-value="~/moduleInfo.txt"
      */
+    @Parameter(property="command-security-maven-plugin.moduleInfoPath", defaultValue="~/moduleInfo.txt")
     protected String moduleOwnersPath;
     
     private static final String WIKI_INFO_SET = "is-wiki-info-set";
