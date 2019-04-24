@@ -48,6 +48,6 @@ public abstract class CommonMojo extends AbstractMojo {
     @Parameter(property="reactorProjects", required=true, readonly=true)
     protected List reactorProjects;
     
-    @Parameter(property="command-security-maven-plugin.isCheckAPIvsParse", readonly=true)
+    @Parameter(property="command-security-maven-plugin.isCheckAPIvsParse", readonly=true, defaultValue="false")
     protected String isCheckAPIvsParse;
 }

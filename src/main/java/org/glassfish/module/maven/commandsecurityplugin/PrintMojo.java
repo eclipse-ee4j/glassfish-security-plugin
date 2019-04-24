@@ -59,7 +59,7 @@ public class PrintMojo extends CommonMojo {
      * Can be "summary" or "wiki" or "csv"
      * 
      */
-    @Parameter(property="command-security-maven-plugin.output-type", readonly=true)
+    @Parameter(property="command-security-maven-plugin.output-type", readonly=true, defaultValue="summary")
     protected String outputType;
     
     private PrintWriter pw;
