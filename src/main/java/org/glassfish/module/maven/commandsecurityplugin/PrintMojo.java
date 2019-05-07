@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019 Payara Services Ltd.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -18,22 +19,18 @@ package org.glassfish.module.maven.commandsecurityplugin;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.Mojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 
 /**
@@ -47,12 +44,8 @@ import org.apache.maven.project.MavenProject;
  * the command.
  * 
  * @author tjquinn
- * @goal print
- * @threadSafe
- * @phase process-classes
- * @requiresProject
- * @requiresDependencyResolution compile+runtime
  */
+@Mojo(name="print",  threadSafe=true, defaultPhase=LifecyclePhase.PROCESS_CLASSES, requiresDependencyResolution=ResolutionScope.COMPILE_PLUS_RUNTIME)
 public class PrintMojo extends CommonMojo {
 
     private final static String OUTPUT_PROP_NAME = "org.glassfish.command.security.output";
@@ -65,11 +58,8 @@ public class PrintMojo extends CommonMojo {
      * Output type
      * Can be "summary" or "wiki" or "csv"
      * 
-     * @parameter 
-     *   expression="${command-security-maven-plugin.output-type}"
-     *   default-value="summary"
-     * @readonly
      */
+    @Parameter(property="command-security-maven-plugin.output-type", readonly=true, defaultValue="summary")
     protected String outputType;
     
     private PrintWriter pw;
