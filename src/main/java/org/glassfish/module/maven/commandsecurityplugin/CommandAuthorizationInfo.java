@@ -37,12 +37,9 @@ public class CommandAuthorizationInfo {
     private CommandAuthorizationInfo parent = null;
     
     private String genericMethodListActual = "";
-    private String genericMethodName = "";
-    private String genericParentConfigured = "";
     private String fullPath = "";
     private String genericAction = "";
     private Delegate delegate = null;
-    private boolean isDomainChild = false;
     
     private final List<ResourceAction> resourceActionPairs = new ArrayList<ResourceAction>();
     
@@ -115,7 +112,6 @@ public class CommandAuthorizationInfo {
             final String fullPath,
             final String action) {
         this.genericMethodListActual = methodListActual;
-        this.genericMethodName = methodName;
 //        this.genericParentConfigured = parentConfigured;
         this.fullPath = fullPath;
         this.genericAction = action;

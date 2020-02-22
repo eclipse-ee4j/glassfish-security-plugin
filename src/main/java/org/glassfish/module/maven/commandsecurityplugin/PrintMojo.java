@@ -78,7 +78,7 @@ public class PrintMojo extends CommonMojo {
     public void execute() throws MojoExecutionException, MojoFailureException {
         isAnyOutput = getOrSet(IS_ANY_OUTPUT_NAME, isAnyOutput);
         parentOfTopURI = findParentOfTopURI();
-        final TypeProcessorImpl typeProcessor = new TypeProcessorImpl(this, session, project);
+        final TypeProcessorImpl typeProcessor = new TypeProcessorImpl(this, project);
         typeProcessor.execute();
         configBeans = typeProcessor.configBeans();
         

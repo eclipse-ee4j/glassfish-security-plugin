@@ -84,7 +84,7 @@ public class CheckMojo extends CommonMojo {
         } catch (IOException ex) {
             throw new MojoFailureException("Error initializing output file", ex);
         }
-        final TypeProcessor typeProcessor = new TypeProcessorImpl(this, session, project, isFailureFatal,
+        final TypeProcessor typeProcessor = new TypeProcessorImpl(this, project, isFailureFatal,
                 isCheckAPIvsParse);
         typeProcessor.execute();
         
