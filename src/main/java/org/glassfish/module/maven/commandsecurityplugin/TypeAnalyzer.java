@@ -163,7 +163,7 @@ public class TypeAnalyzer {
         private List<String> interfaces;
         
         CommandScanner() {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
         }
 
         boolean isCommand() {
@@ -360,7 +360,7 @@ public class TypeAnalyzer {
 //        private final CommandAuthorizationInfo authInfo;
 //        
 //        private AccessRequiredListAnnoScanner(final CommandAuthorizationInfo authInfo) {
-//            super(Opcodes.ASM5);
+//            super(Opcodes.ASM7);
 //            this.authInfo = authInfo;
 //        }
 //
@@ -389,7 +389,7 @@ public class TypeAnalyzer {
         
         public CommandLevelAccessRequiredAnnotationScanner(
                 final CommandAuthorizationInfo commandAuthInfo) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.commandAuthInfo = commandAuthInfo;
         }
 
@@ -433,7 +433,7 @@ public class TypeAnalyzer {
         
         private CommandLevelAccessRequiredDelegateAnnotationScanner(
                 final CommandAuthorizationInfo commandAuthInfo) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.commandAuthInfo = commandAuthInfo;
         }
 
@@ -452,7 +452,7 @@ public class TypeAnalyzer {
         private final CommandAuthorizationInfo authInfo;
         
         private RestEndpointsAnnoScanner(final CommandAuthorizationInfo authInfo) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.authInfo = authInfo;
         }
 
@@ -484,7 +484,7 @@ public class TypeAnalyzer {
         private RestEndpointInfo info;
         
         private RestEndpointAnnoScanner(final CommandAuthorizationInfo authInfo) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.authInfo = authInfo;
         }
 
@@ -539,7 +539,7 @@ public class TypeAnalyzer {
         private RepeatingAnnoScanner(final CommandAuthorizationInfo authInfo, 
                 final String singleAnnoDesc,
                 final Class<? extends AnnotationVisitor> scannerClass) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.authInfo = authInfo;
             this.singleAnnoDesc = singleAnnoDesc;
             this.scannerClass = scannerClass;
@@ -573,7 +573,7 @@ public class TypeAnalyzer {
         private final String descToProcess;
         
         private AnnoScanner(final CommandAuthorizationInfo authInfo, final String descToProcess) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.authInfo = authInfo;
             this.descToProcess = descToProcess;
         }
@@ -609,7 +609,7 @@ public class TypeAnalyzer {
         
         
         FieldScanner(final CommandAuthorizationInfo commandAuthInfo, final String name, final String desc) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.commandAuthInfo = commandAuthInfo;
             this.name = name;
             this.desc = desc;
@@ -676,7 +676,7 @@ public class TypeAnalyzer {
         private final CommandAuthorizationInfo authInfo;
         
         ServiceAnnotationScanner(final CommandAuthorizationInfo authInfo) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.authInfo = authInfo;
         }
         
@@ -711,7 +711,7 @@ public class TypeAnalyzer {
         private boolean isAfterReplication = false;
         
         public SupplementalAnnotationScanner() {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
         }
         
         @Override
@@ -761,7 +761,7 @@ public class TypeAnalyzer {
         
         
         FieldScannerForOutput(final CommandAuthorizationInfo commandInfo, final String name, final String desc) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.commandAuthInfo = commandInfo;
             this.name = name;
             this.desc = desc;
@@ -810,7 +810,7 @@ public class TypeAnalyzer {
         private final CommandAuthorizationInfo.Param param;
         
         ParamAnnotationScanner(final CommandAuthorizationInfo.Param p) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.param = p;
         }
         
@@ -844,7 +844,7 @@ public class TypeAnalyzer {
                 final FieldScanner fieldScanner, 
                 final CommandAuthorizationInfo authInfo, 
                 final CommandAuthorizationInfo.Param param) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.fieldScanner = fieldScanner;
             this.authInfo = authInfo;
             this.param = param;
@@ -891,7 +891,7 @@ public class TypeAnalyzer {
         private final Collection<String> values;
         
         MultiValuedAnnoVisitor(final Collection<String> values) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.values = values;
         }
 
@@ -915,7 +915,7 @@ public class TypeAnalyzer {
                 final FieldScanner fieldScanner,
                 final CommandAuthorizationInfo authInfo,
                 final CommandAuthorizationInfo.Param param) {
-            super(Opcodes.ASM5);
+            super(Opcodes.ASM7);
             this.fieldScanner = fieldScanner;
             this.authInfo = authInfo;
             this.param = param;

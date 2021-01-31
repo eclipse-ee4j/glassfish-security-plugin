@@ -75,7 +75,7 @@ public class ConfigBeanAnalyzer  {
         private Collection<CommandAuthorizationInfo> commandInfos = Collections.EMPTY_LIST;
         
         private ConfigBeanScanner() {
-            super(Opcodes.ASM7);
+            super(Opcodes.ASM9);
         }
         
         private boolean isCommand() {
