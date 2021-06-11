@@ -29,7 +29,7 @@
 
     <groupId>org.glassfish.build</groupId>
     <artifactId>command-security-maven-plugin</artifactId>
-    <version>1.0.12-SNAPSHOT</version>
+    <version>1.0.13-SNAPSHOT</version>
     <packaging>maven-plugin</packaging>
 
     <name>Command Security Plug-in</name>
@@ -88,22 +88,22 @@
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-core</artifactId>
-            <version>3.6.3</version>
+            <version>3.8.1</version>
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm</artifactId>
-            <version>9.0</version>
+            <version>9.1</version>
         </dependency>
         <dependency>
             <groupId>org.glassfish.hk2</groupId>
             <artifactId>hk2-api</artifactId>
-            <version>3.0.1</version>
+            <version>3.0.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.maven.plugin-tools</groupId>
             <artifactId>maven-plugin-annotations</artifactId>
-            <version>3.6.0</version>
+            <version>3.6.1</version>
             <type>jar</type>
         </dependency>
     </dependencies>
