@@ -114,7 +114,6 @@ public class TypeProcessorImpl implements TypeProcessor {
     
     private Map<String,CommandAuthorizationInfo> knownCommandTypes = null;
     private Set<String> knownNonCommandTypes = null;
-    private Map<String,CommandAuthorizationInfo> knownCRUDConfigBeanTypes = null;
     
     private Collection<CommandAuthorizationInfo> authInfosThisModule = new ArrayList<CommandAuthorizationInfo>();
     
@@ -450,7 +449,6 @@ public class TypeProcessorImpl implements TypeProcessor {
     private void setUpKnownTypes() throws InstantiationException, IllegalAccessException {
         knownCommandTypes = getOrCreate(KNOWN_AUTH_TYPES_NAME, knownCommandTypes);
         knownNonCommandTypes = getOrCreate(KNOWN_NONCOMMAND_TYPES_NAME, knownNonCommandTypes);
-        knownCRUDConfigBeanTypes = getOrCreate(KNOWN_CRUD_CONFIG_BEAN_TYPES_NAME, knownCRUDConfigBeanTypes);
         jarsProcessedForConfigBeans = getOrCreate(PROCESSED_MODULES_NAME, jarsProcessedForConfigBeans);
         configBeans = getOrCreate(CONFIG_BEANS_NAME, configBeans);
     }
