@@ -24,7 +24,6 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
-import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -76,11 +75,8 @@ public class TypeProcessorImpl implements TypeProcessor {
     
     
     private static final String ADMIN_COMMAND_NAME = "org.glassfish.api.admin.AdminCommand";
-    private static final String CLI_COMMAND_NAME = "com.sun.enterprise.admin.cli.CLICommand";
     
     private static final String LINE_SEP = System.getProperty("line.separator");
-    
-    private static final String CONFIG_INJECTOR_NAME = "org.jvnet.hk2.config.ConfigInjector";
     
     private static final String GENERIC_CREATE_COMMAND = "org.glassfish.config.support.GenericCreateCommand";
     private static final String GENERIC_DELETE_COMMAND = "org.glassfish.config.support.GenericDeleteCommand";
@@ -130,31 +126,29 @@ public class TypeProcessorImpl implements TypeProcessor {
     private Map<String,Inhabitant> configBeans = null;
     
     private final AbstractMojo mojo;
-    private final MavenSession session;
     private final MavenProject project;
     
     
-    TypeProcessorImpl(final AbstractMojo mojo, final MavenSession session, 
+    TypeProcessorImpl(final AbstractMojo mojo,
             final MavenProject project) {
-        this(mojo, session, project, false, false);
+        this(mojo, project, false, false);
     }
     
-    private TypeProcessorImpl(final AbstractMojo mojo, final MavenSession session, 
+    private TypeProcessorImpl(final AbstractMojo mojo,
             final MavenProject project,
             final boolean isFailureFatal,
             final boolean isCheckAPIvsParse) {
         this.mojo = mojo;
-        this.session = session;
         this.project = project;
         this.isFailureFatal = isFailureFatal;
         this.isCheckAPIvsParse = isCheckAPIvsParse;
     }
     
-    TypeProcessorImpl(final AbstractMojo mojo, final MavenSession session, 
+    TypeProcessorImpl(final AbstractMojo mojo,
             final MavenProject project,
             final String isFailureFatalSetting,
             final String isCheckAPIvsParse) {
-        this(mojo, session, project, Boolean.parseBoolean(isFailureFatalSetting),
+        this(mojo, project, Boolean.parseBoolean(isFailureFatalSetting),
                 Boolean.parseBoolean(isCheckAPIvsParse));
     }
     

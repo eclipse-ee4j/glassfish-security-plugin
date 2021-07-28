@@ -27,9 +27,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.objectweb.asm.*;
 
 /**
@@ -57,13 +54,7 @@ public class TypeAnalyzer {
     private static final String SERVICE_ANNO_DESC = "Lorg/jvnet/hk2/annotations/Service;";
     private static final String SUPPLEMENTAL_ANNO_DESC = "Lorg/glassfish/api/admin/Supplemental;";
     
-    private static final String CONFIGURED_ANNO_DESC = "Lorg/jvnet/hk2/config/Configured;";
-        
     private final static String ADMIN_COMMAND_INTERNAL_NAME = "org/glassfish/api/admin/AdminCommand"; // interface
-    private final static String CLI_COMMAND_INTERNAL_NAME = "com/sun/enterprise/admin/cli/CLICommand";  // class
-    
-    private final static String DOMAIN_EXTENSION_INTERNAL_NAME = "com/sun/enterprise/config/serverbeans/DomainExtension";
-    private final static String DOMAIN_INTERNAL_NAME = "com/sun/enterprise/config/serverbeans/Domain";
     
     private final static String LINE_SEP = System.getProperty("line.separator");
     
