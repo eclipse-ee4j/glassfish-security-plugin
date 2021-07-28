@@ -28,8 +28,8 @@ import org.apache.maven.plugin.MojoFailureException;
  */
 interface TypeProcessor {
 
-    static final String KNOWN_AUTH_TYPES_NAME = "org.glassfish.api.admin.knownAuthTypes";
-    static final String KNOWN_CRUD_CONFIG_BEAN_TYPES_NAME = "org.glassfish.api.admin.knownCRUDConfigBeansTypes";
+    String KNOWN_AUTH_TYPES_NAME = "org.glassfish.api.admin.knownAuthTypes";
+    String KNOWN_CRUD_CONFIG_BEAN_TYPES_NAME = "org.glassfish.api.admin.knownCRUDConfigBeansTypes";
     
     
     CommandAuthorizationInfo processType(final String internalClassName) throws MojoExecutionException, MojoFailureException;
