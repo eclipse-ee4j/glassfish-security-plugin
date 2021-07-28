@@ -635,7 +635,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                         }
                         Child child = configBean.children.get(childClassName);
                         if (child == null) {
-                            child = new Child(subpathInParent, childInh);
+                            child = new Child(subpathInParent);
                             configBean.children.put(childClassName, child);
                             getLog().debug("Adding config bean " + childClassName + " as child " + subpathInParent + " to config bean " + configBean.className);
                         }
@@ -872,7 +872,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                                 }
                                 Child child = configBean.children.get(childClassName);
                                 if (child == null) {
-                                    child = new Child(subpathInParent, childInh);
+                                    child = new Child(subpathInParent);
                                     configBean.children.put(childClassName, child);
                                     getLog().debug("Adding config bean " + childClassName + " as child " + subpathInParent + " to config bean " + configBean.className);
                                 }
@@ -1172,7 +1172,7 @@ public class TypeProcessorImpl implements TypeProcessor {
     static class Child {
         private String subpathInParent;
         
-        Child(final String subpathInParent, final Inhabitant childInh) {
+        Child(final String subpathInParent) {
             this.subpathInParent = subpathInParent;
         }
     }
