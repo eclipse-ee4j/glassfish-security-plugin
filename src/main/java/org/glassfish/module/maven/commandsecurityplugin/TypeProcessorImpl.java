@@ -1171,11 +1171,9 @@ public class TypeProcessorImpl implements TypeProcessor {
     
     static class Child {
         private String subpathInParent;
-        private Inhabitant child;
         
         Child(final String subpathInParent, final Inhabitant childInh) {
             this.subpathInParent = subpathInParent;
-            child = childInh;
         }
     }
     

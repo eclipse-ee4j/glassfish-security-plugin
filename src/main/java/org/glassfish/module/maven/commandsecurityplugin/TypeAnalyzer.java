@@ -73,9 +73,6 @@ public class TypeAnalyzer {
     private final Map<String,CommandAuthorizationInfo> knownCommandTypes;
     private final TypeProcessor typeProcessor;
     
-    private ServiceAnnotationScanner service;
-    private SupplementalAnnotationScanner supplemental;
-   
     private CommandScanner cs;
         
     
@@ -328,15 +325,6 @@ public class TypeAnalyzer {
                         }
                     }
                     commandAuthInfo.setParent(parentInfo);
-                }
-                
-                if (isCommand && service != null) {
-                    if (supplemental != null) {
-                    commandAuthInfo.setName(supplemental.relation());
-                } else {
-                    commandAuthInfo.setName(service.name());
-                }
-                commandAuthInfo.setClassName(className);
                 }
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
