@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2019 Payara Services Ltd.
+ * Copyright (c) 2022 Contributors to the Eclipse Foundation. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -169,8 +170,8 @@ public class PrintMojo extends CommonMojo {
     private PrintWriter getPrintWriter() throws MojoFailureException {
         PrintWriter pw = (PrintWriter) getSessionProperties().get(OUTPUT_PROP_NAME);
         if (pw == null) {
-            final MavenProject execRoot = getExecutionRootProject();
-            final File outputFile = new File(execRoot.getBasedir(), "commandList.txt");
+            final String execRoot = session.getExecutionRootDirectory();
+            final File outputFile = new File(execRoot, "commandList.txt");
             try {
                 pw = new PrintWriter(outputFile);
                 getSessionProperties().put(OUTPUT_PROP_NAME, pw);
@@ -179,19 +180,6 @@ public class PrintMojo extends CommonMojo {
             }
         }
         return pw;
-    }
-    
-    private MavenProject getExecutionRootProject() {
-        MavenProject execRoot = null;
-        for (Object o : reactorProjects) {
-            if (o instanceof MavenProject) {
-                MavenProject p = (MavenProject) o;
-                if (p.isExecutionRoot()) {
-                    execRoot = p;
-                }
-            }
-        }
-        return execRoot;
     }
     
     private StringBuilder getAndAdjustIndent() {
