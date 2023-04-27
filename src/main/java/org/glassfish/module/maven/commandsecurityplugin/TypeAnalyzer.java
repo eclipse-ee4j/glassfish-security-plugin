@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.objectweb.asm.*;
 
 /**
@@ -858,6 +859,7 @@ public class TypeAnalyzer {
         public void visitEnd() {
             final String dottedTypeName = fieldScanner.fullFriendlyTypeName().replace("/", ".");
             TypeProcessorImpl.Inhabitant i = typeProcessor.configBeans().get(dottedTypeName);
+            Objects.requireNonNull(i, "The inhabitant found for this type was null: " + dottedTypeName);
             for (String action : actions) {
                 authInfo.addResourceAction(i.fullPath() + (! collection.isEmpty() ? "/" : "") + collection + "/$xxx", action, "@AccessRequired.To");
             }
