@@ -30,7 +30,7 @@
 
     <groupId>org.glassfish.build</groupId>
     <artifactId>command-security-maven-plugin</artifactId>
-    <version>1.0.17-SNAPSHOT-SNAPSHOT</version>
+    <version>1.0.17-SNAPSHOT</version>
     <packaging>maven-plugin</packaging>
 
     <name>Command Security Plug-in</name>
@@ -122,7 +122,7 @@
                         <target>11</target>
                     </configuration>
                 </plugin>
-            
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-source-plugin</artifactId>
@@ -134,12 +134,12 @@
                         <execution>
                             <id>attach-sources</id>
                             <goals>
-                                <goal>jar-no-fork</goal> 
+                                <goal>jar-no-fork</goal>
                             </goals>
                         </execution>
                     </executions>
                 </plugin>
-                
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
@@ -158,7 +158,7 @@
                         </execution>
                     </executions>
                 </plugin>
-                
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-plugin-plugin</artifactId>
