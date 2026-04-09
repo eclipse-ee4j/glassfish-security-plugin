@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
  * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
@@ -16,7 +17,13 @@
 
 package org.glassfish.module.maven.commandsecurityplugin;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -25,63 +32,63 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class CommandAuthorizationInfo {
     private final static String LINE_SEP = System.getProperty("line.separator");
-    
+
     final AtomicBoolean hasRestAnno = new AtomicBoolean(false);
     final AtomicBoolean hasCommandLevelAccessRequiredAnno = new AtomicBoolean(false);
     final AtomicBoolean hasFieldLevelAccessRequiredAnno = new AtomicBoolean(false);
     final AtomicBoolean isAccessCheckProvider = new AtomicBoolean(false);
     final AtomicBoolean isLocal = new AtomicBoolean(false);
-    
+
     private List<RestEndpointInfo> endpoints = new ArrayList<RestEndpointInfo>();
-    
+
     private CommandAuthorizationInfo parent = null;
-    
+
     private String genericMethodListActual = "";
     private String fullPath = "";
     private String genericAction = "";
     private Delegate delegate = null;
-    
+
     private final List<ResourceAction> resourceActionPairs = new ArrayList<ResourceAction>();
-    
-    private static final List<String> GENERIC_ACTIONS_USING_FULL_GENERIC_SUBPATH = 
+
+    private static final List<String> GENERIC_ACTIONS_USING_FULL_GENERIC_SUBPATH =
             new ArrayList<String>(Arrays.asList(new String[] {"read", "update", "delete"}));
-    
+
     public void setDelegate(final String delegateClassName) {
         delegate = new Delegate(delegateClassName);
     }
-    
+
     public void addRestEndpoint(final RestEndpointInfo endpoint) {
         endpoints.add(endpoint);
     }
-    
+
     public void addResourceAction(final String resource, final String action,
             final String origin) {
         resourceActionPairs.add(new ResourceAction(resource, action, origin));
     }
-    
+
     public List<ResourceAction> resourceActionPairs() {
         return resourceActionPairs;
     }
-    
+
     public void overrideResourceActions(final List<ResourceAction> newPairs) {
         resourceActionPairs.clear();
         resourceActionPairs.addAll(newPairs);
     }
-    
+
     public String genericSubpath(final String separator) {
         if (genericMethodListActual == null || genericMethodListActual.isEmpty()) {
             return "";
         }
         return fullPath;
     }
-    
+
     public String genericSubpathPerAction(final String separator) {
         /*
-         * Initial subpath is collection-name/type-name.  That happens to be 
+         * Initial subpath is collection-name/type-name.  That happens to be
          * what we want for 'create' but we'll adjust it for other operations.
          */
         String subpath = genericSubpath(separator);
-        
+
         if (GENERIC_ACTIONS_USING_FULL_GENERIC_SUBPATH.contains(genericAction)) {
             subpath = subpath + separator + "$name";
         } else if (genericAction.equals("list")) {
@@ -91,24 +98,24 @@ public class CommandAuthorizationInfo {
             subpath = subpath.substring(0, subpath.lastIndexOf('/'));
         }
         /*
-         * If 
+         * If
          */
         return subpath;
     }
-    
+
     public String adjustedGenericAction() {
         if (genericAction.equals("list")) {
             return "read";
         }
         return genericAction;
     }
-    
+
     public String genericAction() {
         return genericAction;
     }
-    
-    public void setGeneric(final String methodListActual, 
-            final String methodName, 
+
+    public void setGeneric(final String methodListActual,
+            final String methodName,
             final String fullPath,
             final String action) {
         this.genericMethodListActual = methodListActual;
@@ -116,39 +123,39 @@ public class CommandAuthorizationInfo {
         this.fullPath = fullPath;
         this.genericAction = action;
     }
-    
+
     public List<RestEndpointInfo> restEndpoints() {
         return endpoints;
     }
-    
+
     public void setParent(final CommandAuthorizationInfo parent) {
         this.parent = parent;
     }
-    
+
     public void setLocal(final boolean local) {
         isLocal.set(local);
     }
-    
+
     public boolean isLocalDeep() {
         return isLocal.get() || (parent != null ? parent.isLocalDeep() : false);
     }
-    
+
     boolean isOK() {
         return (delegate != null) || hasRestAnno.get() || hasCommandLevelAccessRequiredAnno.get() || hasFieldLevelAccessRequiredAnno.get() || isAccessCheckProvider.get();
     }
-    
+
     boolean isOKDeep() {
         return isOK() || (parent != null ? parent.isOKDeep() : false);
     }
-    
+
     boolean isAccessCheckProvider() {
         return isAccessCheckProvider.get();
     }
-    
+
     Delegate delegate() {
         return delegate;
     }
-    
+
     private String name;
     private String className;
     private List<Param> params = new ArrayList<Param>();
@@ -164,15 +171,15 @@ public class CommandAuthorizationInfo {
     void setClassName(final String className) {
         this.className = className;
     }
-    
+
     List<Param> params() {
         return params;
     }
-    
+
     String name() {
         return name;
     }
-    
+
     String className() {
         return className;
     }
@@ -182,7 +189,7 @@ public class CommandAuthorizationInfo {
         return toString("", true);
     }
 
-    
+
     public String toString(final String indent, final boolean isFull) {
         final StringBuffer sb = new StringBuffer();
         if (delegate != null) {
@@ -193,7 +200,7 @@ public class CommandAuthorizationInfo {
         if (isFull) {
             sb.append(LINE_SEP);
             final Deque<CommandAuthorizationInfo> levelsToProcess = new LinkedList<CommandAuthorizationInfo>();
-            
+
             CommandAuthorizationInfo info = this;
             while (info != null) {
                 levelsToProcess.addFirst(info);
@@ -209,45 +216,45 @@ public class CommandAuthorizationInfo {
                     sb.append(LINE_SEP).append(indent).append("  ").append(i.toString());
                 }
             }
-                
+
         }
         return sb.append(LINE_SEP).toString();
     }
-    
+
     static class Param {
         private String name;
         private String type;
         private Map<String,Object> values = new HashMap<String,Object>();
-        
+
         Param(final String name, final String type) {
             this.name = name;
             this.type = type;
         }
-        
+
         void setName(final String name) {
             this.name = name;
         }
-        
+
         void setType (final String type) {
             this.type = type;
         }
-        
+
         void addValue(final String name, final Object value) {
             values.put(name, value);
         }
-        
+
         Map<String,Object> values() {
             return values;
         }
-        
+
         boolean isOptional() {
             return booleanValue("optional");
         }
-        
+
         boolean isPrimary() {
             return booleanValue("primary");
         }
-        
+
         private boolean booleanValue(final String key) {
             boolean result = false;
             final Object v = values.get(key);
@@ -258,40 +265,40 @@ public class CommandAuthorizationInfo {
             }
             return result;
         }
-        
+
         String type() {
             return type;
         }
-        
+
         @Override
         public String toString() {
             return (isOptional() ? "[" : "") + (isPrimary() ? "**" : "--") + name + friendlyType() + (isOptional() ? "]" : "");
         }
-        
+
         private String friendlyType() {
             return (type.isEmpty() ? "" : " (" + type + ")");
         }
     }
-    
+
     static class ResourceAction {
         String resource;
         String action;
         String origin;
-        
+
         ResourceAction(final String resource, final String action, final String origin) {
             this.resource = resource;
             this.action = action;
             this.origin = origin;
         }
     }
-    
+
     static class Delegate {
         String delegateInternalClassName;
-        
+
         Delegate(final String delegateInternalClassName) {
             this.delegateInternalClassName = delegateInternalClassName;
         }
-        
+
         String delegateInternalClassName() {
             return delegateInternalClassName;
         }

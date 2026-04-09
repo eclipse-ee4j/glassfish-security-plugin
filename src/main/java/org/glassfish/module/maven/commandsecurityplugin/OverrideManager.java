@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
  * Copyright (c) 2013, 2018 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
@@ -24,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.maven.plugin.logging.Log;
 import org.glassfish.module.maven.commandsecurityplugin.CommandAuthorizationInfo.ResourceAction;
 
@@ -32,21 +34,21 @@ import org.glassfish.module.maven.commandsecurityplugin.CommandAuthorizationInfo
  * @author tjquinn
  */
 public class OverrideManager {
-    
+
     private Map<String, List<ResourceAction>> overrides =
             Collections.EMPTY_MAP;
-            
-    
+
+
     OverrideManager(final File overrideFile, final Log log) {
         overrides = readOverrides(overrideFile, log);
     }
-    
+
     private static Map<String,List<ResourceAction>> readOverrides(final File overrideFile, final Log log)  {
         if ( ! overrideFile.canRead()) {
             log.debug("No readable exceptions file " + overrideFile.getAbsolutePath());
             return Collections.EMPTY_MAP;
         }
-        Map<String, List<ResourceAction>> result = 
+        Map<String, List<ResourceAction>> result =
                 new HashMap<String,List<ResourceAction>>();
         try {
             final LineNumberReader reader = new LineNumberReader(new FileReader(overrideFile));
@@ -70,12 +72,12 @@ public class OverrideManager {
                 reader.close();
             }
         } catch (Exception ex) {
-            
+
             result = Collections.EMPTY_MAP;
         }
         return result;
     }
-    
+
     CommandAuthorizationInfo adjust(final CommandAuthorizationInfo info) {
         if (overrides.containsKey(info.name())) {
             info.overrideResourceActions(overrides.get(info.name()));

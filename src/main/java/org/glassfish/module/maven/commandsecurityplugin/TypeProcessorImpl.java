@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
  * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
@@ -16,13 +17,32 @@
 
 package org.glassfish.module.maven.commandsecurityplugin;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.LineNumberReader;
+import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -38,67 +58,67 @@ import org.objectweb.asm.Type;
  * of authorization, issuing warnings or failing the build (configurable) if
  * any do not.
  * <p>
- * The mojo has to analyze not only the inhabitants but potentially also 
- * their ancestor classes.  To improve performance across multiple modules in 
+ * The mojo has to analyze not only the inhabitants but potentially also
+ * their ancestor classes.  To improve performance across multiple modules in
  * the same build the mojo stores information about classes known to be commands and
- * classes known not to be commands in the maven session. 
- * 
+ * classes known not to be commands in the maven session.
+ *
  * @author tjquinn
- * 
+ *
  */
 public class TypeProcessorImpl implements TypeProcessor {
-    
+
     static Properties shared = new Properties();
-    
+
     private boolean isFailureFatal;
     private boolean isCheckAPIvsParse;
-    
+
     private static final String KNOWN_NONCOMMAND_TYPES_NAME = "org.glassfish.api.admin.knownNonCommandTypes";
     private static final String PROCESSED_MODULES_NAME = "org.glassfish.api.admin.processedModules";
     private static final String CONFIG_BEANS_NAME = "org.glassfish.api.admin.configBeans";
-    
+
     private static final String INHABITANTS_PATHS_PREFIX = "META-INF/hk2-locator/";
     private static final String[] INHABITANTS_PATHS = {"default", "tenant-scoped"};
-    
+
 //    private static final Pattern INHABITANT_DESCR_PATTERN = Pattern.compile("(\\w+)=([^:]+)(?:\\:(.+))*");
     private static final Pattern INHABITANT_IMPL_CLASS_PATTERN = Pattern.compile("\\[([^\\]]+)\\]");
     private static final Pattern INHABITANT_CONTRACTS_PATTERN = Pattern.compile("contract=\\{([^\\}]+)\\}");
     private static final Pattern INHABITANT_NAME_PATTERN = Pattern.compile("name=(.+)");
     private final static Pattern CONFIG_BEAN_METADATA_PREFIX_PATTERN = Pattern.compile(
-            "metadata=target=\\{([^\\}]+)\\}(.*)"); // 
-    
+            "metadata=target=\\{([^\\}]+)\\}(.*)"); //
+
     // ,<element-name>={class-name} or ,<element-name>={collection\:class-name}
     private final static Pattern CONFIG_BEAN_CHILD_PATTERN = Pattern.compile(
             ",(?:<([^>]+)>=\\{(?:collection\\\\:)?([^,}]+)[},])|(?:\\@[^}]+})|(?:key=[^}]+)|(?:keyed-as=[^}]+)");
     private static final Pattern GENERIC_COMMAND_INFO_PATTERN = Pattern.compile("metadata=MethodListActual=\\{([^\\}]+)\\},MethodName=\\{([^\\}]+)\\},ParentConfigured=\\{([^\\}]+)\\}");
     private static final Pattern CONFIG_BEAN_CHILD_NAME_KEY_PATTERN = Pattern.compile("<([^>]+)>");
-    
-    
+
+
     private static final String ADMIN_COMMAND_NAME = "org.glassfish.api.admin.AdminCommand";
-    
+
     private static final String LINE_SEP = System.getProperty("line.separator");
-    
+
     private static final String GENERIC_CREATE_COMMAND = "org.glassfish.config.support.GenericCreateCommand";
     private static final String GENERIC_DELETE_COMMAND = "org.glassfish.config.support.GenericDeleteCommand";
     private static final String GENERIC_LIST_COMMAND = "org.glassfish.config.support.GenericListCommand";
-    private static final Set<String> GENERIC_CRUD_COMMAND_CLASS_NAMES = 
+    private static final Set<String> GENERIC_CRUD_COMMAND_CLASS_NAMES =
             new HashSet<String>(Arrays.asList(GENERIC_CREATE_COMMAND,
             GENERIC_DELETE_COMMAND,
             GENERIC_LIST_COMMAND));
-    
+
     private static final List<String> EXTENSION_INTERNAL_NAMES = new ArrayList<String>(Arrays.asList(
-            "com/sun/enterprise/config/serverbeans/DomainExtension", 
+            "com/sun/enterprise/config/serverbeans/DomainExtension",
             "com/sun/enterprise/config/serverbeans/ConfigExtension",
-            "com/oracle/cloudlogic/tenantmanager/entity/TenantExtension", 
+            "com/oracle/cloudlogic/tenantmanager/entity/TenantExtension",
             "com/sun/enterprise/config/serverbeans/ApplicationExtension",
             "com/oracle/cloudlogic/tenantmanager/entity/TenantEnvironmentExtension"));
-    
+
     private static final String CONFIG_BEAN_NAME = "org.jvnet.hk2.config.ConfigBean";
     private static final String CONFIG_BEAN_PROXY_NAME = "org.jvnet.hk2.config.ConfigBeanProxy";
-    
-    private static final Map<String,String> genericCommandNameToAction = 
+
+    private static final Map<String,String> genericCommandNameToAction =
             initCommandNameToActionMap();
-    
+
     private static Map<String,String> initCommandNameToActionMap() {
         final Map<String,String> result = new HashMap<String,String>();
         result.put(GENERIC_CREATE_COMMAND, "create");
@@ -106,33 +126,33 @@ public class TypeProcessorImpl implements TypeProcessor {
         result.put(GENERIC_LIST_COMMAND, "list");
         return result;
     }
-    
+
     private URLClassLoader loader;
     private File buildDir;
-    
+
     private StringBuilder trace = null;
-    
+
     private Map<String,CommandAuthorizationInfo> knownCommandTypes = null;
     private Set<String> knownNonCommandTypes = null;
-    
+
     private Collection<CommandAuthorizationInfo> authInfosThisModule = new ArrayList<CommandAuthorizationInfo>();
-    
+
     private final List<String> offendingClassNames = new ArrayList<String>();
     private List<String> okClassNames = null;
-    
+
     private Set<URL> jarsProcessedForConfigBeans = null;
-    
+
     private Map<String,Inhabitant> configBeans = null;
-    
+
     private final AbstractMojo mojo;
     private final MavenProject project;
-    
-    
+
+
     TypeProcessorImpl(final AbstractMojo mojo,
             final MavenProject project) {
         this(mojo, project, false, false);
     }
-    
+
     private TypeProcessorImpl(final AbstractMojo mojo,
             final MavenProject project,
             final boolean isFailureFatal,
@@ -142,7 +162,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         this.isFailureFatal = isFailureFatal;
         this.isCheckAPIvsParse = isCheckAPIvsParse;
     }
-    
+
     TypeProcessorImpl(final AbstractMojo mojo,
             final MavenProject project,
             final String isFailureFatalSetting,
@@ -150,44 +170,44 @@ public class TypeProcessorImpl implements TypeProcessor {
         this(mojo, project, Boolean.parseBoolean(isFailureFatalSetting),
                 Boolean.parseBoolean(isCheckAPIvsParse));
     }
-    
+
     @Override
     public Map<String,Inhabitant> configBeans() {
         return configBeans;
     }
-    
+
     private Log getLog() {
         return mojo.getLog();
     }
-    
+
     /**
      * Processes a type (class or interface), analyzing its byte code to see if
      * it is a command and, if so, checking for authorization-related annos
      * and interface implementations, finally recording whether it is a known command
      * or a known non-command (to speed up analysis of other types that might
      * refer to this one).
-     * 
+     *
      * @param internalClassName
      * @return the command authorization info for the class if it is a command, null otherwise
-     * @throws MojoExecutionException 
+     * @throws MojoExecutionException
      */
     @Override
     public CommandAuthorizationInfo processType(final String internalClassName) throws MojoFailureException, MojoExecutionException {
         return processType(internalClassName, false);
     }
-    
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         this.trace = (getLog().isDebugEnabled() ? new StringBuilder() : null);
         this.okClassNames = (getLog().isDebugEnabled() ? new ArrayList<String>() : null);
-        
+
         buildDir = new File(project.getBuild().getOutputDirectory());
         try {
             setUpKnownTypes();
         } catch (Exception ex) {
             throw new MojoExecutionException("Error retrieving information about earlier processing results" + ex.toString());
         }
-        
+
         /*
          * Set up a class loader that knows about this project's dependencies.
          * We don't actually load classes; we use the loader's getResourceAsStream
@@ -199,7 +219,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         } catch (Exception ex) {
             throw new MojoExecutionException("Error loading config beans", ex);
         }
-        
+
         final Collection<Inhabitant> inhabitants;
         try {
             inhabitants = findInhabitantsInModule();
@@ -210,7 +230,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         for (Inhabitant i : commandInhabitants) {
             authInfosThisModule.add(processType(i));
         }
-        
+
 //        final Collection<Inhabitant> crudCommandInhabitants = findCRUDCommandInhabitants(inhabitants);
 //        for (Inhabitant i : crudCommandInhabitants) {
 //            final CommandAuthorizationInfo authInfo = processConfigBean(i);
@@ -218,11 +238,11 @@ public class TypeProcessorImpl implements TypeProcessor {
 //                authInfosThisModule.add(authInfo);
 //            }
 //        }
-        
+
         if (trace != null) {
             getLog().debug(trace.toString());
         }
-        
+
     }
 
     private void loadConfigBeans() throws MalformedURLException, IOException {
@@ -234,7 +254,7 @@ public class TypeProcessorImpl implements TypeProcessor {
             }
         }
     }
-    
+
     private void loadConfigBeansFromJar(final URL url) throws MalformedURLException, IOException {
         for (String inhabitantsPath : INHABITANTS_PATHS) {
             final String fullPath = INHABITANTS_PATHS_PREFIX + inhabitantsPath;
@@ -247,10 +267,10 @@ public class TypeProcessorImpl implements TypeProcessor {
                 fullURL = fullPath;
                 inhabitantsURL = new URL(url, fullURL);
             }
-            
-        
+
+
             try {
-                
+
                 loadConfigBeans(url, inhabitantsURL);
             } catch (FileNotFoundException ex) {
                 // This must means that the JAR does not contain an inhabitants file.  Continue.
@@ -266,11 +286,11 @@ public class TypeProcessorImpl implements TypeProcessor {
          * specified input to configBeans.
          */
         try {
-            Map<String,Inhabitant> preBeans = 
+            Map<String,Inhabitant> preBeans =
                     (isCheckAPIvsParse ? new HashMap<String,Inhabitant>(configBeans) : null);
-            
+
             final List<Inhabitant> inhabitants = findInhabitantsInModule(new BufferedReader(new InputStreamReader(is)));
-            
+
             if (isCheckAPIvsParse) {
                 Set<Inhabitant> beansAddedByNew = new HashSet<Inhabitant>(configBeans.values());
                 beansAddedByNew.removeAll(preBeans.values());
@@ -300,12 +320,12 @@ public class TypeProcessorImpl implements TypeProcessor {
             is.close();
         }
     }
-    
+
     @Override
     public Collection<CommandAuthorizationInfo> authInfosThisModule() {
         return authInfosThisModule;
     }
-    
+
     @Override
     public List<String> okClassNames() {
         return okClassNames;
@@ -325,8 +345,8 @@ public class TypeProcessorImpl implements TypeProcessor {
     public StringBuilder trace() {
         return trace;
     }
-    
-    
+
+
     private CommandAuthorizationInfo processType(final Inhabitant i) throws MojoFailureException, MojoExecutionException {
         /*
          * If this inhabitant is generated as a CRUD command then we do not
@@ -339,7 +359,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         final CommandAuthorizationInfo info = new CommandAuthorizationInfo();
         final Param primary = new Param("name", "");
         primary.addValue("primary", Boolean.TRUE);
-        
+
         info.addParam(primary);
         info.setName(i.serviceName);
         info.setClassName(i.className);
@@ -361,7 +381,7 @@ public class TypeProcessorImpl implements TypeProcessor {
             getLog().debug("Recognized previously-IDd class as non-command: " + internalClassName);
             return null;
         }
-        
+
         /*
          * Find the byte code for this class so we can analyze it.
          */
@@ -393,7 +413,7 @@ public class TypeProcessorImpl implements TypeProcessor {
             /*
                 * Log our decision about whether this class is OK only if this
                 * is an inhabitant.  (This method might have been invoked to analyze a
-                * superclass, and if the superclass was not listed as an 
+                * superclass, and if the superclass was not listed as an
                 * inhabitant we don't need to report whether it has authorization
                 * info or not).
                 */
@@ -418,9 +438,9 @@ public class TypeProcessorImpl implements TypeProcessor {
                 }
             }
         }
-        
+
     }
-    
+
 //    public CommandAuthorizationInfo processConfigBean(final Inhabitant configBean) throws MojoFailureException, MojoExecutionException {
 //        /*
 //         * Find the byte code for this class so we can analyze it.
@@ -432,7 +452,7 @@ public class TypeProcessorImpl implements TypeProcessor {
 //            throw new MojoFailureException("Cannot locate byte code for inhabitant class " + resourcePath);
 //        }
 //        try {
-//            
+//
 //        } catch (Exception ex) {
 //            throw new MojoExecutionException("Error analyzing " + internalClassName, ex);
 //        } finally {
@@ -445,14 +465,14 @@ public class TypeProcessorImpl implements TypeProcessor {
 //            }
 //        }
 //    }
-    
+
     private void setUpKnownTypes() throws InstantiationException, IllegalAccessException {
         knownCommandTypes = getOrCreate(KNOWN_AUTH_TYPES_NAME, knownCommandTypes);
         knownNonCommandTypes = getOrCreate(KNOWN_NONCOMMAND_TYPES_NAME, knownNonCommandTypes);
         jarsProcessedForConfigBeans = getOrCreate(PROCESSED_MODULES_NAME, jarsProcessedForConfigBeans);
         configBeans = getOrCreate(CONFIG_BEANS_NAME, configBeans);
     }
-    
+
     private <T,U> Map<T,U> getOrCreate(final String propertyName, final Map<T,U> m) {
         Map<T,U> collection = (Map<T,U>) getSessionProperties().get(propertyName);
         if (collection == null) {
@@ -461,7 +481,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
         return collection;
     }
-    
+
     private <T> Set<T> getOrCreate(final String propertyName, final Set<T> s) {
         Set<T> collection = (Set<T>) getSessionProperties().get(propertyName);
         if (collection == null) {
@@ -470,7 +490,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
         return collection;
     }
-    
+
     private Collection<Inhabitant> findCommandInhabitants(final Collection<Inhabitant> inhabitants) {
         final List<Inhabitant> result = new ArrayList<Inhabitant>();
         for (Inhabitant inh : inhabitants) {
@@ -483,7 +503,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
         return result;
     }
-    
+
 //    private Collection<Inhabitant> findCRUDCommandInhabitants(final Collection<Inhabitant> inhabitants) {
 //        final List<Inhabitant> result = new ArrayList<Inhabitant>();
 //        for (Inhabitant inh : inhabitants) {
@@ -496,13 +516,13 @@ public class TypeProcessorImpl implements TypeProcessor {
 //        }
 //        return result;
 //    }
-    
+
     private Properties getSessionProperties() {
 //        return session.getUserProperties();
         return shared;
     }
-    
-    
+
+
     private List<Inhabitant> findInhabitantsInModule() throws IOException {
         final List<Inhabitant> inhabitants = new ArrayList<Inhabitant>();
         for (String inhabitantsPath : INHABITANTS_PATHS) {
@@ -512,15 +532,15 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
         return inhabitants;
     }
-    
+
     private List<Inhabitant> findInhabitantsInModule(final File inhabFile) throws FileNotFoundException, IOException {
         if ( ! inhabFile.canRead()) {
             getLog().debug("Cannot read " + inhabFile.getAbsolutePath());
             return Collections.EMPTY_LIST;
         }
-        
+
         Map<String,Inhabitant> preBeans = (isCheckAPIvsParse ? new HashMap<String,Inhabitant>(configBeans) : null);
-        
+
         final List<Inhabitant> inhabitants = findInhabitantsInModule(new BufferedReader(new InputStreamReader(new BufferedInputStream(new FileInputStream(inhabFile)))));
         if (isCheckAPIvsParse) {
             final List<Inhabitant> old = findInhabitantsInModule(new InputStreamReader(new BufferedInputStream(new FileInputStream(inhabFile))));
@@ -548,7 +568,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
         return inhabitants;
     }
-    
+
     private List<Inhabitant> findInhabitantsInModule(final BufferedReader br) throws IOException {
         final List<Inhabitant> result = new ArrayList<Inhabitant>();
         DescriptorImpl di;
@@ -608,7 +628,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                     final Matcher m = CONFIG_BEAN_CHILD_NAME_KEY_PATTERN.matcher(entry.getKey());
                     if (m.matches()) {
                         /*
-                         * Group 1 (from the key) is the child name and the first 
+                         * Group 1 (from the key) is the child name and the first
                          * part of the value is the child type which might have
                          * the prefix "collection:".
                          */
@@ -647,7 +667,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         br.close();
         return result;
     }
-    
+
     private Inhabitant findParent(final Inhabitant cb) {
         if (cb.parent != null) {
             return cb.parent;
@@ -663,10 +683,10 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
         return null;
     }
-    
+
     private String getParentConfigured(final DescriptorImpl di) {
         String parentConfigured = getFirstIfAny(di.getMetadata(), "ParentConfigured");
-        if (parentConfigured == null && 
+        if (parentConfigured == null &&
                 (di.getAdvertisedContracts().contains(CONFIG_BEAN_NAME)
                  || di.getAdvertisedContracts().contains(CONFIG_BEAN_PROXY_NAME))) {
             List<String> targets = di.getMetadata().get("target");
@@ -676,7 +696,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
         return parentConfigured;
     }
-    
+
     private String getParentNameFromByteCode(final String className) {
         String result = null;
         InputStream is = null;
@@ -710,7 +730,7 @@ public class TypeProcessorImpl implements TypeProcessor {
             }
         }
     }
-    
+
     private String getFirstIfAny(final Map<String,List<String>> map, final String key) {
         final List<String> values = map.get(key);
         if (values != null && values.size() > 0) {
@@ -720,10 +740,10 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
     }
     private List<Inhabitant> findInhabitantsInModule(final Reader r) throws IOException {
-        
+
         /*
          * Inhabitants files look like this:
-         * 
+         *
          * [implementation-class-name]
          * ...
          * contract={contract-1-name,constract-2-name,...}
@@ -732,9 +752,9 @@ public class TypeProcessorImpl implements TypeProcessor {
          * [next-implementation-class-name]
          * ...
          */
-        
+
         final List<Inhabitant> result = new ArrayList<Inhabitant>();
-        
+
         final LineNumberReader rdr = new LineNumberReader(r);
 
         String line;
@@ -743,10 +763,10 @@ public class TypeProcessorImpl implements TypeProcessor {
 //        String methodListActual = null;
 //        String methodName = null;
 //        String parentConfigured = null;
-        
+
 //        List<String> contracts = new ArrayList<String>();
 //        String serviceName = null;
-        
+
         /*
          * This Inhabitant accumulates information from several successive
          * lines in the hk2 inhabitants file.  Once we detect the end of this
@@ -754,7 +774,7 @@ public class TypeProcessorImpl implements TypeProcessor {
          * we process this inhabitant.
          */
         Inhabitant inhabitant = null;
-        
+
         try {
             while ((line = rdr.readLine()) != null) {
                 final int commentSlot = line.indexOf('#');
@@ -766,7 +786,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                     inhabitant = null;
                     continue;
                 }
-                
+
                 final Matcher implClassNameMatcher = INHABITANT_IMPL_CLASS_PATTERN.matcher(line);
                 if (implClassNameMatcher.matches()) {
                     implClassName = implClassNameMatcher.group(1);
@@ -806,7 +826,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                                     } else {
                                         getLog().debug("Found parent bean " + configBeanParent.className + " for target bean " + inhabitant.methodListActual);
                                     }
-                                    
+
                                     Inhabitant configBean = configBeans.get(inhabitant.methodListActual);
                                     if (configBean == null) {
                                         configBean = new Inhabitant(inhabitant.methodListActual);
@@ -822,7 +842,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                         }
                     }
                 }
-                
+
                 /*
                  * If the previously-found contracts include ConfigInjector then
                  * this is a config bean.  Try matching the config bean metadata.
@@ -836,15 +856,15 @@ public class TypeProcessorImpl implements TypeProcessor {
                         configBean = new Inhabitant(configBeanClassName);
                         configBeans.put(configBeanClassName, configBean);
                     }
-                    
+
                     /*
                      * If the prefix has a group 2 then that is the part we
                      * need to parse for children.
                      */
                     final String restOfLine = configBeanPrefixMatcher.group(2);
-                    if ( restOfLine != null && 
+                    if ( restOfLine != null &&
                             restOfLine.length() > 0) {
-                        final Matcher configBeanChildMatcher = 
+                        final Matcher configBeanChildMatcher =
                                 CONFIG_BEAN_CHILD_PATTERN.matcher(restOfLine);
                         while (configBeanChildMatcher.find()) {
                             /*
@@ -904,7 +924,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
         return result;
     }
-    
+
 //    private List<Inhabitant> findInhabitantsInModule() throws IOException {
 //        /*
 //         * class=com.sun.enterprise.admin.cli.LoginCommand,index=com.sun.enterprise.admin.cli.CLICommand:login
@@ -913,9 +933,9 @@ public class TypeProcessorImpl implements TypeProcessor {
 //        if ( ! inhabFile.canRead()) {
 //            return Collections.EMPTY_LIST;
 //        }
-//        
+//
 //        final List<Inhabitant> result = new ArrayList<Inhabitant>();
-//        
+//
 //        final LineNumberReader rdr = new LineNumberReader(new InputStreamReader(new BufferedInputStream(new FileInputStream(inhabFile))));
 //
 //        String line;
@@ -956,7 +976,7 @@ public class TypeProcessorImpl implements TypeProcessor {
 //        }
 //        return result;
 //    }
-    
+
     private URLClassLoader createClassLoader() throws MojoExecutionException {
         final List<String> compileClasspathElements;
         try {
@@ -968,16 +988,16 @@ public class TypeProcessorImpl implements TypeProcessor {
                 getLog().debug(" Processing class path element " + cpElement);
                 urls[urlSlot++] = new File(cpElement).toURI().toURL();
             }
-            
+
             return new URLClassLoader(urls);
-            
+
         } catch (DependencyResolutionRequiredException ex) {
             throw new MojoExecutionException("Error fetching compile-time classpath", ex);
         } catch (MalformedURLException ex) {
             throw new MojoExecutionException("Error processing class path URL segment", ex);
         }
     }
-    
+
     private enum GenericCommand {
         CREATE(GENERIC_CREATE_COMMAND, "create"),
         DELETE(GENERIC_DELETE_COMMAND, "delete"),
@@ -1005,12 +1025,12 @@ public class TypeProcessorImpl implements TypeProcessor {
         }
 
     }
-    
+
     public class Inhabitant {
-        
+
         private List<String> contracts = new ArrayList<String>();
 //        private final Map<String,String> indexes = new HashMap<String,String>();
-        
+
         private boolean isFilledIn = false;
         private String className;
         private String serviceName;
@@ -1021,16 +1041,16 @@ public class TypeProcessorImpl implements TypeProcessor {
         private String nameInParent = null;
         private String action;
         private Inhabitant configBeanForCommand = null;
-        
+
         private Map<String,Child> children = null;
-        
+
         private Inhabitant() {}
-        
+
         private Inhabitant(final String className) {
             this.className = className;
         }
-        
-        private Inhabitant(final String className, final List<String> contracts, 
+
+        private Inhabitant(final String className, final List<String> contracts,
                 final String serviceName,
                 final String methodListActual,
                 final String methodName,
@@ -1044,7 +1064,7 @@ public class TypeProcessorImpl implements TypeProcessor {
             this.action = GenericCommand.match(className).action;
             this.isFilledIn = true;
         }
-        
+
         void setParent(final Inhabitant p) {
             parent = p;
             Inhabitant ancestor = this;
@@ -1055,7 +1075,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                 ancestor = ancestor.parent;
             }
         }
-        
+
         void set(final List<String> contracts, final String serviceName,
                 final String methodListActual,
                 final String methodName,
@@ -1085,7 +1105,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                     check(parentConfigured, other.parentConfigured) &&
                     check(serviceName, other.serviceName)
                     ;
-                    
+
         }
 
         @Override
@@ -1103,7 +1123,7 @@ public class TypeProcessorImpl implements TypeProcessor {
             hash = 29 * hash + (this.configBeanForCommand != null ? this.configBeanForCommand.hashCode() : 0);
             return hash;
         }
-        
+
         private boolean check(final Object x, final Object y) {
             return (x == null? y == null : x.equals(y));
         }
@@ -1112,22 +1132,22 @@ public class TypeProcessorImpl implements TypeProcessor {
         public String toString() {
             return "Inhabitant: " + className + " @Service(\"" + serviceName + "\")\n";
         }
-        
-        
-        
-        
+
+
+
+
         boolean isFilledIn() {
             return isFilledIn;
         }
-        
+
         Inhabitant parent() {
             return parent;
         }
-        
+
         String nameInParent() {
             return nameInParent;
         }
-        
+
         String fullPath() {
             final StringBuilder path = new StringBuilder();
             for (Inhabitant i = (configBeanForCommand != null ? configBeanForCommand : this); i != null; i = i.parent) {
@@ -1152,11 +1172,11 @@ public class TypeProcessorImpl implements TypeProcessor {
                 } else {
                     path.insert(0, Util.convertName(Util.lastPart(i.className)));
                 }
-                
+
             }
             return path.toString();
         }
-        
+
 //        private static String chooseAction(final String className) {
 //            if (className.contains("Create")) {
 //                return "create";
@@ -1168,21 +1188,21 @@ public class TypeProcessorImpl implements TypeProcessor {
 //            return "????";
 //        }
     }
-    
+
     static class Child {
         private String subpathInParent;
-        
+
         Child(final String subpathInParent) {
             this.subpathInParent = subpathInParent;
         }
     }
-    
+
 //    static class ConfigBeanInhabitant  {
-//        
-//        
+//
+//
 //        private final String beanName;
 //        private String metadataTarget = null;
-//        
+//
 //        private ConfigBeanInhabitant(final String beanName, final List<String> contracts, final String name) {
 //            this.beanName = beanName;
 //        }
@@ -1208,13 +1228,13 @@ public class TypeProcessorImpl implements TypeProcessor {
 //    private static  class HK2_Index {
 //        private String indexName;
 //        private String serviceName;
-//        
+//
 //        private HK2_Index(final String indexName, final String serviceName) {
 //            this.indexName = indexName;
 //            this.serviceName = serviceName;
 //        }
 //    }
-    
-    
-    
+
+
+
 }

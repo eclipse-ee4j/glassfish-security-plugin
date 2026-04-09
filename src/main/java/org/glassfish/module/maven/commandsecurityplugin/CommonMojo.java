@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2013, 2018 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
  * Copyright (c) 2019 Payara Services Ltd.
+ * Copyright (c) 2013, 2018 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -18,6 +19,7 @@
 package org.glassfish.module.maven.commandsecurityplugin;
 
 import java.util.List;
+
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -28,26 +30,26 @@ import org.apache.maven.project.MavenProject;
  * @author tjquinn
  */
 public abstract class CommonMojo extends AbstractMojo {
-    
+
     /**
      * The maven project.
      */
     @Parameter(property="project", required=true, readonly=true)
     protected MavenProject project;
-    
-    /** 
-     * The Maven Session Object 
+
+    /**
+     * The Maven Session Object
      */
     @Parameter(property="session", required=true, readonly=true)
-    protected MavenSession session; 
-    
+    protected MavenSession session;
+
     /**
      * The list of reactor projects
-     * 
+     *
      */
     @Parameter(property="reactorProjects", required=true, readonly=true)
     protected List reactorProjects;
-    
+
     @Parameter(property="command-security-maven-plugin.isCheckAPIvsParse", readonly=true, defaultValue="false")
     protected String isCheckAPIvsParse;
 }

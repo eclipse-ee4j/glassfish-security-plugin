@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
  * Copyright (c) 2019 Payara Services Ltd.
+ * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -23,12 +24,13 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Properties;
+
 import org.apache.maven.model.Developer;
-import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 
@@ -37,46 +39,46 @@ import org.apache.maven.project.MavenProject;
  * of authorization, issuing warnings or failing the build (configurable) if
  * any do not.
  * <p>
- * The mojo has to analyze not only the inhabitants but potentially also 
- * their ancestor classes.  To improve performance across multiple modules in 
+ * The mojo has to analyze not only the inhabitants but potentially also
+ * their ancestor classes.  To improve performance across multiple modules in
  * the same build the mojo stores information about classes known to be commands and
- * classes known not to be commands in the maven session. 
- * 
+ * classes known not to be commands in the maven session.
+ *
  * @author tjquinn
  */
 @Mojo(name="check", threadSafe=true, defaultPhase=LifecyclePhase.PROCESS_CLASSES, requiresDependencyResolution=ResolutionScope.COMPILE_PLUS_RUNTIME)
 public class CheckMojo extends CommonMojo {
-    
+
     /**
      * Whether failures are fatal to the build.
      */
     @Parameter(property="command-security-maven-plugin.isFailureFatal", defaultValue="true")
     private String isFailureFatal;
-    
+
     /**
      * Path to which to print a violation summary wiki table.  If empty,
      * print no table.
      */
     @Parameter(property="command-security-maven-plugin.violationWikiPath", defaultValue="")
     protected String violationWikiPath;
-    
+
     /**
      * Path to properties file listing owners of modules.
-     * 
+     *
      * The format is (moduleId).owner=(owner name)
      *               (moduleId).notes=(notes) - if any
      */
     @Parameter(property="command-security-maven-plugin.moduleInfoPath", defaultValue="~/moduleInfo.txt")
     protected String moduleOwnersPath;
-    
+
     private static final String WIKI_INFO_SET = "is-wiki-info-set";
     private static WikiOutputInfo wikiOutputInfo;
-    
+
     private boolean isLastProject() {
-        final List<MavenProject> projects = (List<MavenProject>) reactorProjects;
+        final List<MavenProject> projects = reactorProjects;
         return project.equals(projects.get(projects.size() - 1));
     }
-    
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
@@ -87,9 +89,9 @@ public class CheckMojo extends CommonMojo {
         final TypeProcessor typeProcessor = new TypeProcessorImpl(this, project, isFailureFatal,
                 isCheckAPIvsParse);
         typeProcessor.execute();
-        
+
         final StringBuilder trace = typeProcessor.trace();
-        
+
         if (trace != null) {
             getLog().debug(trace.toString());
         }
@@ -122,28 +124,28 @@ public class CheckMojo extends CommonMojo {
             }
         }
     }
-    
+
     private void ensureViolationWikiTitleIsPresent() throws IOException {
         if (wikiOutputInfo != null) {
             wikiOutputInfo.ensureInitialized();
         }
     }
-    
+
     private void printViolationWikiRow(final List<String> offendingClassNames) {
-        final String output = 
-                "| " + project.getGroupId() + ":" + project.getArtifactId() + 
-                " |" + project.getName() + 
-                " | " + relativeToTop(project.getBasedir()) + 
-                " | " + formattedList(offendingClassNames) + 
+        final String output =
+                "| " + project.getGroupId() + ":" + project.getArtifactId() +
+                " |" + project.getName() +
+                " | " + relativeToTop(project.getBasedir()) +
+                " | " + formattedList(offendingClassNames) +
                 " | " + nameOrId(getLead()) +
                 " |";
         wikiOutputInfo.wikiWriter.println(output);
     }
-    
+
     private Developer getLead() {
-        final List<Developer> devs = (List<Developer>) project.getDevelopers();
+        final List<Developer> devs = project.getDevelopers();
         Developer lead = (devs.isEmpty() ? null : devs.get(0));
-        for (Developer d : (List<Developer>) project.getDevelopers()) {
+        for (Developer d : project.getDevelopers()) {
             final List<String> roles = d.getRoles();
             if (roles != null && roles.contains("lead")) {
                 lead = d;
@@ -151,7 +153,7 @@ public class CheckMojo extends CommonMojo {
         }
         return lead;
     }
-    
+
     private String nameOrId(final Developer d) {
         String result = "?";
         if (d != null) {
@@ -173,11 +175,11 @@ public class CheckMojo extends CommonMojo {
         }
         return sb.toString();
     }
-    
+
     private String relativeToTop(final File f) {
         return new File(session.getExecutionRootDirectory()).toURI().relativize(f.toURI()).toASCIIString();
     }
-    
+
     private void initWikiOutputInfo() throws IOException {
         if (wikiOutputInfo == null) {
             /*
@@ -201,31 +203,31 @@ public class CheckMojo extends CommonMojo {
             }
         }
     }
-    
+
     private class WikiOutputInfo {
         File wikiFile = null;
         PrintWriter wikiWriter = null;
         final boolean isNew;
-        
+
         private WikiOutputInfo(final boolean isNew) throws IOException {
             this.isNew = isNew;
             if (violationWikiPath != null && ! violationWikiPath.isEmpty()) {
                 wikiFile = new File(session.getExecutionRootDirectory(), violationWikiPath);
             }
         }
-        
+
         private WikiOutputInfo(final String state) throws IOException {
             this(false);
             if ( ! state.equals("unopened")) {
                 openWriter();
             }
         }
-        
+
         private void openWriter() throws IOException {
             wikiWriter = new PrintWriter(new FileWriter(wikiFile, ! isNew));
             session.getUserProperties().setProperty(WIKI_INFO_SET, "open");
         }
-        
+
         private void ensureInitialized() throws IOException {
             if (wikiWriter == null) {
                 openWriter();
@@ -233,7 +235,7 @@ public class CheckMojo extends CommonMojo {
                 wikiWriter.println("|| Module ID || Module Name || Path || Classes Needing Attention || Owner ||");
             }
         }
-        
+
         private void finish() {
             if (wikiWriter != null) {
                 final String state = session.getUserProperties().getProperty(WIKI_INFO_SET);
