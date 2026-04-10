@@ -25,12 +25,12 @@
         <groupId>org.eclipse.ee4j</groupId>
         <artifactId>project</artifactId>
         <version>2.0.2</version>
-        <relativePath/>
+        <relativePath />
     </parent>
 
     <groupId>org.glassfish.build</groupId>
     <artifactId>command-security-maven-plugin</artifactId>
-    <version>1.0.21-SNAPSHOT</version>
+    <version>1.0.22-SNAPSHOT</version>
     <packaging>maven-plugin</packaging>
 
     <name>Eclipse GlassFish Command Security Maven Plugin</name>
