@@ -245,6 +245,7 @@ public class PrintMojo extends CommonMojo {
         }
 
         protected abstract void doPostOpen();
+
         @Override
         public void postOpen() {
             if ( ! isAnyOutput.get()) {
