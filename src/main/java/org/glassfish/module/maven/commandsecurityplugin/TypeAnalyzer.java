@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation.
  * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
@@ -28,77 +29,83 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.objectweb.asm.*;
+
+import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 /**
  * Analyzes a class, searching for annotations or interface implementations
  * that mean the class handles authorization.
- * 
+ *
  * @author tjquinn
  */
 public class TypeAnalyzer {
-    
+
     private final InputStream classStream;
     private final boolean isOpenedAsFile;
-    
+
     private final static String ACCESS_REQUIRED_DESC_PATH_ONLY = "org/glassfish/api/admin/AccessRequired";
     private final static String ACCESS_REQUIRED_DESC = 'L' + ACCESS_REQUIRED_DESC_PATH_ONLY + ';';
     private final static String ACCESS_REQUIRED_LIST_DESC = 'L' + ACCESS_REQUIRED_DESC_PATH_ONLY + "$List;";
-    
+
     private final static String ACCESS_REQUIRED_DELEGATE_PATH_ONLY = "org/glassfish/api/admin/AccessRequired$Delegate";
     private final static String ACCESS_REQUIRED_DELEGATE_DESC = 'L' + ACCESS_REQUIRED_DELEGATE_PATH_ONLY + ';';
-    
+
     private final static String REST_ENDPOINT_DESC_PATH_ONLY = "org/glassfish/api/admin/RestEndpoint";
     private final static String REST_ENDPOINT_DESC = 'L' + REST_ENDPOINT_DESC_PATH_ONLY + ';';
     private final static String REST_ENDPOINTS_DESC = 'L' + REST_ENDPOINT_DESC_PATH_ONLY + "s;";
-    
+
     private static final String SERVICE_ANNO_DESC = "Lorg/jvnet/hk2/annotations/Service;";
     private static final String SUPPLEMENTAL_ANNO_DESC = "Lorg/glassfish/api/admin/Supplemental;";
-    
+
     private final static String ADMIN_COMMAND_INTERNAL_NAME = "org/glassfish/api/admin/AdminCommand"; // interface
-    
-    private final static String LINE_SEP = System.getProperty("line.separator");
-    
-//    private static final Collection<String> COMMAND_BASE_INTERFACE_NAMES = 
+
+    private final static String LINE_SEP = System.lineSeparator();
+
+//    private static final Collection<String> COMMAND_BASE_INTERFACE_NAMES =
 //                new HashSet<String>(Arrays.asList("org/glassfish/api/admin/AdminCommand",
 //            "com/sun/enterprise/admin/cli/CLICommand"));
-    
+
     private static final Collection<String> AUTHORIZATION_RELATED_INTERFACES =
-            new HashSet<String>(Arrays.asList("org/glassfish/api/admin/AdminCommandSecurity$AccessCheckProvider"));
-        
+            new HashSet<>(Arrays.asList("org/glassfish/api/admin/AdminCommandSecurity$AccessCheckProvider"));
+
     private StringBuilder trace = null;
-    
+
     private CommandAuthorizationInfo commandAuthInfo = null;
     private boolean isCommand = false;
-    
+
     private final Map<String,CommandAuthorizationInfo> knownCommandTypes;
     private final TypeProcessor typeProcessor;
-    
+
     private CommandScanner cs;
-        
-    
+
+
 //    TypeAnalyzer(final File classFile, final TypeProcessor typeProcessor) throws FileNotFoundException {
 //        this(new BufferedInputStream(new FileInputStream(classFile)), true,
 //                typeProcessor);
 //    }
-    
+
     TypeAnalyzer(final InputStream classStream, final Map<String,CommandAuthorizationInfo> knownCommandTypes, final TypeProcessor typeProcessor) {
         this(classStream, false, knownCommandTypes, typeProcessor);
     }
-    
+
     void setTrace(final StringBuilder sb) {
         trace = sb;
     }
-    
+
     private TypeAnalyzer(final InputStream classStream, final boolean isOpenedAsFile,
-            final Map<String,CommandAuthorizationInfo> knownCommandTypes, 
+            final Map<String,CommandAuthorizationInfo> knownCommandTypes,
             final TypeProcessor typeProcessor) {
         this.classStream = classStream;
         this.isOpenedAsFile = isOpenedAsFile;
         this.knownCommandTypes = knownCommandTypes;
         this.typeProcessor = typeProcessor;
     }
-    
+
     void run() throws FileNotFoundException, IOException {
         try {
             final ClassReader classReader = new ClassReader(classStream);
@@ -108,32 +115,32 @@ public class TypeAnalyzer {
 //            if (cs.isCommand()) {
                 commandAuthInfo = cs.commandInfo();
 //            }
-            
+
         } finally {
             if (isOpenedAsFile) {
                 classStream.close();
             }
         }
     }
-    
+
     List<String> interfaces() {
         return (cs == null ? Collections.EMPTY_LIST : cs.interfaces);
     }
-    
+
     /**
      * Returns the command auth information for the class analyzed by this
      * instance.
-     * 
+     *
      * @return command auth info if the analyzed class is a command; null otherwise
      */
     CommandAuthorizationInfo commandAuthInfo() {
         return commandAuthInfo;
     }
-    
+
     boolean isCommand() {
         return isCommand;
     }
-    
+
     /**
      * Analyzes a class as ASM invokes the various methods during
      * a scan of the class's byte code.  After the class (and its ancestors
@@ -141,16 +148,16 @@ public class TypeAnalyzer {
      * if the class is a command and null if it is not a command.
      */
     private class CommandScanner extends ClassVisitor {
-    
+
         private CommandAuthorizationInfo commandAuthInfo = null;
-    
+
         private boolean isCommand = false;
-        
+
         private String superName;
         private String className;
-        
+
         private List<String> interfaces;
-        
+
         CommandScanner() {
             super(Opcodes.ASM7);
         }
@@ -158,15 +165,15 @@ public class TypeAnalyzer {
         boolean isCommand() {
             return isCommand;
         }
-        
+
         CommandAuthorizationInfo commandInfo() {
             return commandAuthInfo;
         }
-        
+
         List<String> interfaces() {
             return interfaces;
         }
-        
+
         @Override
         public void visit(int version,
          int access,
@@ -186,16 +193,16 @@ public class TypeAnalyzer {
                 trace.append(LINE_SEP).append("  Starting to analyze class ").append(name);
             }
             this.superName = superName;
-            this.interfaces = new ArrayList<String>(Arrays.asList(interfaces));
+            this.interfaces = new ArrayList<>(Arrays.asList(interfaces));
             isCommand = isExtensionOrImplementationOfCommandType(name, interfaces);
-            
+
             commandAuthInfo = new CommandAuthorizationInfo();
             commandAuthInfo.setClassName(className);
-            
-            
+
+
             checkForAuthRelatedInterfaces(interfaces);
         }
-        
+
         private void checkForAuthRelatedInterfaces(final String[] interfaces) {
             for (String iface : interfaces) {
                 if (AUTHORIZATION_RELATED_INTERFACES.contains(iface)) {
@@ -204,12 +211,12 @@ public class TypeAnalyzer {
                 }
             }
         }
-        
-//        
+
+//
 //        private void checkForCommandAncestor(final String className,
 //                final String superName) {
 //        }
-        
+
         private boolean isExtensionOrImplementationOfCommandType(final String name, final String[] interfaces) {
             boolean result = false;
             for (String i : interfaces) {
@@ -219,14 +226,14 @@ public class TypeAnalyzer {
             }
             return result;
         }
-        
+
         @Override
         public FieldVisitor visitField(int access,
                       String name,
                       String desc,
                       String signature,
                       Object value) {
-            
+
 //            if (! commandAuthInfo.isOK()) {
                 final FieldScanner f = new FieldScanner(commandAuthInfo, name, desc);
                 return f;
@@ -234,11 +241,11 @@ public class TypeAnalyzer {
 //                return null;
 //            }
         }
-        
+
         @Override
         public AnnotationVisitor visitAnnotation(String desc,
                                 boolean visible) {
-            
+
 //            if (! commandAuthInfo.isOK()) {
                 if (desc.equals(ACCESS_REQUIRED_DESC)) {
                     if (trace != null) {
@@ -260,7 +267,7 @@ public class TypeAnalyzer {
                     return new RestEndpointAnnoScanner(commandAuthInfo);
                 } else if (desc.equals(ACCESS_REQUIRED_LIST_DESC)) {
 //                        return new AccessRequiredListAnnoScanner(commandAuthInfo);
-                        return new RepeatingAnnoScanner(commandAuthInfo, 
+                        return new RepeatingAnnoScanner(commandAuthInfo,
                                 ACCESS_REQUIRED_DESC,
                                 CommandLevelAccessRequiredAnnotationScanner.class);
                 } else if (desc.equals(REST_ENDPOINTS_DESC)) {
@@ -273,7 +280,7 @@ public class TypeAnalyzer {
                 } else {
                     return null;
                 }
-//            } 
+//            }
         }
 
         @Override
@@ -317,7 +324,7 @@ public class TypeAnalyzer {
                                     append(" is a command based on its ancestry; check of parent and its ancestry for auth: ").
                                     append(parentInfo.isOKDeep());
                         }
-                    
+
                     } else if ( ! isCommand) {
                         if (trace != null) {
                             trace.append(LINE_SEP).append("  Detected that ").
@@ -331,14 +338,14 @@ public class TypeAnalyzer {
                 throw new RuntimeException(ex);
             }
         }
-        
-        
+
+
     }
-    
+
 //    private class AccessRequiredListAnnoScanner extends AnnotationVisitor {
-//        
+//
 //        private final CommandAuthorizationInfo authInfo;
-//        
+//
 //        private AccessRequiredListAnnoScanner(final CommandAuthorizationInfo authInfo) {
 //            super(Opcodes.ASM7);
 //            this.authInfo = authInfo;
@@ -361,12 +368,12 @@ public class TypeAnalyzer {
 //            return new AnnoScanner(authInfo.hasCommandLevelAccessRequiredAnno, ACCESS_REQUIRED_DESC);
 //        }
 //    }
-//    
+//
     private static class CommandLevelAccessRequiredAnnotationScanner extends AnnotationVisitor {
-        private final List<String> resources = new ArrayList<String>();
-        private final List<String> actions = new ArrayList<String>();
+        private final List<String> resources = new ArrayList<>();
+        private final List<String> actions = new ArrayList<>();
         private final CommandAuthorizationInfo commandAuthInfo;
-        
+
         public CommandLevelAccessRequiredAnnotationScanner(
                 final CommandAuthorizationInfo commandAuthInfo) {
             super(Opcodes.ASM7);
@@ -376,20 +383,20 @@ public class TypeAnalyzer {
         @Override
         public AnnotationVisitor visitAnnotation(String name, String desc) {
             /*
-             * Invoked only when the command has @AccessRequired.List and 
-             * the repeating anno processor is processing one of the list 
+             * Invoked only when the command has @AccessRequired.List and
+             * the repeating anno processor is processing one of the list
              * items.
              */
             return new CommandLevelAccessRequiredAnnotationScanner(commandAuthInfo);
         }
-        
+
         @Override
         public AnnotationVisitor visitArray(String name) {
             if (name.equals("resource")) {
                 return new MultiValuedAnnoVisitor(resources);
             } else if (name.equals("action")) {
                 return new MultiValuedAnnoVisitor(actions);
-            } 
+            }
             return super.visitArray(name);
         }
 
@@ -406,11 +413,11 @@ public class TypeAnalyzer {
             super.visitEnd();
         }
     }
-    
+
     private class CommandLevelAccessRequiredDelegateAnnotationScanner extends AnnotationVisitor {
-        
+
         private final CommandAuthorizationInfo commandAuthInfo;
-        
+
         private CommandLevelAccessRequiredDelegateAnnotationScanner(
                 final CommandAuthorizationInfo commandAuthInfo) {
             super(Opcodes.ASM7);
@@ -426,11 +433,11 @@ public class TypeAnalyzer {
             }
         }
     }
-    
+
     private class RestEndpointsAnnoScanner extends AnnotationVisitor {
-        
+
         private final CommandAuthorizationInfo authInfo;
-        
+
         private RestEndpointsAnnoScanner(final CommandAuthorizationInfo authInfo) {
             super(Opcodes.ASM7);
             this.authInfo = authInfo;
@@ -452,17 +459,17 @@ public class TypeAnalyzer {
             return new RestEndpointsAnnoScanner(authInfo);
         }
     }
-    
+
     private class RestEndpointAnnoScanner extends AnnotationVisitor {
-        
+
         private final CommandAuthorizationInfo authInfo;
         private String configBeanClassName = null;
         private String path = null;
         private String opType = null;
         private boolean useForAuthorization = false;
-        
+
         private RestEndpointInfo info;
-        
+
         private RestEndpointAnnoScanner(final CommandAuthorizationInfo authInfo) {
             super(Opcodes.ASM7);
             this.authInfo = authInfo;
@@ -488,8 +495,8 @@ public class TypeAnalyzer {
                 opType = value;
             }
         }
-        
-        
+
+
 
         @Override
         public void visitEnd() {
@@ -500,23 +507,23 @@ public class TypeAnalyzer {
             }
             super.visitEnd();
         }
-        
+
         private RestEndpointInfo restEndpointInfo() {
             return info;
         }
-        
-        
-        
-        
+
+
+
+
     }
-    
-    
+
+
     private class RepeatingAnnoScanner extends AnnotationVisitor {
         private final CommandAuthorizationInfo authInfo;
         private final String singleAnnoDesc;
         private final Class<? extends AnnotationVisitor> scannerClass;
-        
-        private RepeatingAnnoScanner(final CommandAuthorizationInfo authInfo, 
+
+        private RepeatingAnnoScanner(final CommandAuthorizationInfo authInfo,
                 final String singleAnnoDesc,
                 final Class<? extends AnnotationVisitor> scannerClass) {
             super(Opcodes.ASM7);
@@ -546,12 +553,12 @@ public class TypeAnalyzer {
             }
         }
     }
-    
+
     private class AnnoScanner extends AnnotationVisitor {
-        
+
         private final CommandAuthorizationInfo authInfo;
         private final String descToProcess;
-        
+
         private AnnoScanner(final CommandAuthorizationInfo authInfo, final String descToProcess) {
             super(Opcodes.ASM7);
             this.authInfo = authInfo;
@@ -569,25 +576,25 @@ public class TypeAnalyzer {
             return null;
         }
     }
-    
+
     private class FieldScanner extends FieldVisitor {
-    
+
         private final String ACCESS_REQUIRED_TO_DESC = 'L' + ACCESS_REQUIRED_DESC_PATH_ONLY + "$To;";
         private final String ACCESS_REQUIRED_NEW_CHILD_DESC = 'L' + ACCESS_REQUIRED_DESC_PATH_ONLY + "$NewChild;";
         private final Collection<String> FIELD_LEVEL_ANNOS = Arrays.asList(
                 ACCESS_REQUIRED_TO_DESC,
                 ACCESS_REQUIRED_NEW_CHILD_DESC);
-    
+
         private final CommandAuthorizationInfo commandAuthInfo;
         private final static String PARAM_ANNO_DESC = "Lorg/glassfish/api/Param;" ;// Lorg/glassfish/api/admin/AdminCommand;";
         private final static String STRING_DESC = "Ljava/lang/String;";
-    
+
         private final String name;
         private final String desc;
         private final String friendlyTypeName;
         private CommandAuthorizationInfo.Param param = null;
-        
-        
+
+
         FieldScanner(final CommandAuthorizationInfo commandAuthInfo, final String name, final String desc) {
             super(Opcodes.ASM7);
             this.commandAuthInfo = commandAuthInfo;
@@ -595,14 +602,14 @@ public class TypeAnalyzer {
             this.desc = desc;
             this.friendlyTypeName = friendlyTypeName(desc);
         }
-        
+
         String fullFriendlyTypeName() {
             if (desc.startsWith("L")) {
                 return desc.substring(1, desc.length() - 1);
             }
             return desc;
         }
-        
+
         private String friendlyTypeName(final String desc) {
             if (desc.startsWith("L")) {
                 if (desc.equals(STRING_DESC)) {
@@ -613,7 +620,7 @@ public class TypeAnalyzer {
             }
             return desc;
         }
-        
+
         @Override
         public AnnotationVisitor visitAnnotation(String desc,
                                 boolean visible) {
@@ -647,19 +654,19 @@ public class TypeAnalyzer {
             }
             super.visitEnd();
         }
-        
-        
+
+
     }
-    
+
     private static class ServiceAnnotationScanner extends AnnotationVisitor {
         private String name = null;
         private final CommandAuthorizationInfo authInfo;
-        
+
         ServiceAnnotationScanner(final CommandAuthorizationInfo authInfo) {
             super(Opcodes.ASM7);
             this.authInfo = authInfo;
         }
-        
+
         @Override
         public void visit(String name,
          Object value) {
@@ -672,28 +679,28 @@ public class TypeAnalyzer {
                 }
             }
         }
-        
+
         String name() {
             return name;
         }
     }
-    
+
     private static class SupplementalAnnotationScanner extends AnnotationVisitor {
 
         private static final String SUPPLEMENTAL_TIMING_DESC = "Lorg/glassfish/api/admin/Supplemental$Timing;";
         private static final String BEFORE = "Before";
         private static final String AFTER = "After";
         private static final String AFTER_REPLICATION = "AfterReplication";
-        
+
         private String relatedCommand;
         private boolean isBefore = false;
         private boolean isAfter = false;
         private boolean isAfterReplication = false;
-        
+
         public SupplementalAnnotationScanner() {
             super(Opcodes.ASM7);
         }
-        
+
         @Override
         public void visit(String name,
          Object value) {
@@ -705,7 +712,7 @@ public class TypeAnalyzer {
                 }
             }
         }
-        
+
         @Override
         public void visitEnum(String name,
              String desc,
@@ -716,30 +723,30 @@ public class TypeAnalyzer {
                 isAfterReplication |= value.equals(AFTER_REPLICATION);
             }
         }
-        
+
         String relatedCommand() {
             return relatedCommand;
         }
-        
+
         String relation() {
             return "[" + (isBefore ? "+" : "") + relatedCommand + (isAfter ? "+" : (isAfterReplication ? "++" : "")) + "]";
         }
-        
+
     }
-    
+
     private static class FieldScannerForOutput extends FieldVisitor {
-    
+
         private final static String PARAM_ANNO_DESC = "Lorg/glassfish/api/Param;" ;// Lorg/glassfish/api/admin/AdminCommand;";
         private final static String STRING_DESC = "Ljava/lang/String;";
-    
+
         private final String name;
         private final String desc;
         private final String friendlyTypeName;
         private final CommandAuthorizationInfo commandAuthInfo;
-        
+
         private CommandAuthorizationInfo.Param param = null; // remains null if the field is not annotated with @Param
-        
-        
+
+
         FieldScannerForOutput(final CommandAuthorizationInfo commandInfo, final String name, final String desc) {
             super(Opcodes.ASM7);
             this.commandAuthInfo = commandInfo;
@@ -755,13 +762,13 @@ public class TypeAnalyzer {
                 friendlyTypeName = desc;
             }
         }
-        
+
         @Override
         public AnnotationVisitor visitAnnotation(String desc,
                                 boolean visible) {
 //            System.err.println("  FieldScanner.visitAnno for anno " + desc);
             if (desc.equals(PARAM_ANNO_DESC)) {
-                
+
                 param = new CommandAuthorizationInfo.Param(name, friendlyTypeName); // default name and type based on field name and type
                 return new ParamAnnotationScanner(param);
             } else {
@@ -780,20 +787,20 @@ public class TypeAnalyzer {
             }
             super.visitEnd();
         }
-        
-        
-        
+
+
+
     }
-    
+
     private static class ParamAnnotationScanner extends AnnotationVisitor {
-        
+
         private final CommandAuthorizationInfo.Param param;
-        
+
         ParamAnnotationScanner(final CommandAuthorizationInfo.Param p) {
             super(Opcodes.ASM7);
             this.param = p;
         }
-        
+
         @Override
         public void visit(String name,
          Object value) {
@@ -812,17 +819,17 @@ public class TypeAnalyzer {
             super.visit(name, value);
         }
     }
-    
+
     private class AccessRequiredToAnnotationScanner extends AnnotationVisitor {
         private final FieldScanner fieldScanner;
         private final CommandAuthorizationInfo authInfo;
         private final CommandAuthorizationInfo.Param param;
-        private final List<String> actions = new ArrayList<String>();
+        private final List<String> actions = new ArrayList<>();
         private String collection = "";
-        
+
         AccessRequiredToAnnotationScanner(
-                final FieldScanner fieldScanner, 
-                final CommandAuthorizationInfo authInfo, 
+                final FieldScanner fieldScanner,
+                final CommandAuthorizationInfo authInfo,
                 final CommandAuthorizationInfo.Param param) {
             super(Opcodes.ASM7);
             this.fieldScanner = fieldScanner;
@@ -852,8 +859,8 @@ public class TypeAnalyzer {
                 return null;
             }
         }
-        
-        
+
+
 
         @Override
         public void visitEnd() {
@@ -866,11 +873,11 @@ public class TypeAnalyzer {
             super.visitEnd();
         }
     }
-    
+
     private static class MultiValuedAnnoVisitor extends AnnotationVisitor {
-        
+
         private final Collection<String> values;
-        
+
         MultiValuedAnnoVisitor(final Collection<String> values) {
             super(Opcodes.ASM7);
             this.values = values;
@@ -882,16 +889,16 @@ public class TypeAnalyzer {
             super.visit(name, value);
         }
     }
-    
-    
+
+
     private class AccessRequiredNewChildAnnotationScanner extends AnnotationVisitor {
         private final FieldScanner fieldScanner;
         private final CommandAuthorizationInfo authInfo;
         private final CommandAuthorizationInfo.Param param;
-        private final List<String> actions = new ArrayList<String>();
+        private final List<String> actions = new ArrayList<>();
         private String collection = "";
         private String type = "";
-        
+
         AccessRequiredNewChildAnnotationScanner(
                 final FieldScanner fieldScanner,
                 final CommandAuthorizationInfo authInfo,
@@ -927,7 +934,7 @@ public class TypeAnalyzer {
                 return null;
             }
         }
-        
+
         @Override
         public void visitEnd() {
             final String dottedTypeName = fieldScanner.fullFriendlyTypeName().replace("/", ".");
@@ -939,7 +946,7 @@ public class TypeAnalyzer {
                 actions.add("create");
             }
             for (String action : actions) {
-                
+
                 authInfo.addResourceAction(i.fullPath()
                         + ( ! type.isEmpty() ? "/" : "") + type
                         + ( ! collection.isEmpty() ? "/" : "") + collection, action, "@AccessRequired.NewChild");

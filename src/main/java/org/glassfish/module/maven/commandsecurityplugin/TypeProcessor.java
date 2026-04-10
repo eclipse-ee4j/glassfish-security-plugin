@@ -19,6 +19,7 @@ package org.glassfish.module.maven.commandsecurityplugin;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 
@@ -30,8 +31,8 @@ interface TypeProcessor {
 
     String KNOWN_AUTH_TYPES_NAME = "org.glassfish.api.admin.knownAuthTypes";
     String KNOWN_CRUD_CONFIG_BEAN_TYPES_NAME = "org.glassfish.api.admin.knownCRUDConfigBeansTypes";
-    
-    
+
+
     CommandAuthorizationInfo processType(final String internalClassName) throws MojoExecutionException, MojoFailureException;
 //    CommandAuthorizationInfo processConfigBean(final String internalClassName) throws MojoFailureException, MojoExecutionException;
     void execute() throws MojoExecutionException, MojoFailureException;

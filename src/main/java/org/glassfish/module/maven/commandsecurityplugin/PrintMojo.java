@@ -1,7 +1,7 @@
 /*
+ * Copyright (c) 2022 Contributors to the Eclipse Foundation.
  * Copyright (c) 2012, 2018 Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2019 Payara Services Ltd.
- * Copyright (c) 2022 Contributors to the Eclipse Foundation. All rights reserved.
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0, which is available at
@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -39,11 +40,11 @@ import org.apache.maven.project.MavenProject;
  * in the project hierarchy or below.
  * <p>
  * This mojo uses basically the same technology as the CheckMojo to analyze
- * the inhabitants which define command-related services, except that rather 
- * than checking for authorization-related annotations or interfaces (as 
+ * the inhabitants which define command-related services, except that rather
+ * than checking for authorization-related annotations or interfaces (as
  * CheckMojo does) it just finds the commands and prints out the format of
  * the command.
- * 
+ *
  * @author tjquinn
  */
 @Mojo(name="print",  threadSafe=true, defaultPhase=LifecyclePhase.PROCESS_CLASSES, requiresDependencyResolution=ResolutionScope.COMPILE_PLUS_RUNTIME)
@@ -52,29 +53,29 @@ public class PrintMojo extends CommonMojo {
     private final static String OUTPUT_PROP_NAME = "org.glassfish.command.security.output";
     private final static String OUTPUT_INDENT_PROP_NAME = "org.glassfish.command.security.output.indent";
     private final static String IS_ANY_OUTPUT_NAME = "org.glassfish.command.security.isAnyOutput";
-    
+
     private final static String OVERRIDE_FILE = "commandSecurityOverride.txt";
-    
+
     /**
      * Output type
      * Can be "summary" or "wiki" or "csv"
-     * 
+     *
      */
     @Parameter(property="command-security-maven-plugin.output-type", readonly=true, defaultValue="summary")
     protected String outputType;
-    
+
     private PrintWriter pw;
     AtomicBoolean isAnyOutput = new AtomicBoolean(false);
     private boolean isAnyOutputThisModule = false;
-    
+
     StringBuilder indent;
-    
+
     URI parentOfTopURI;
-    
+
     Map<String,TypeProcessorImpl.Inhabitant> configBeans;
-    
+
     private OverrideManager om;
-    
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         isAnyOutput = getOrSet(IS_ANY_OUTPUT_NAME, isAnyOutput);
@@ -82,12 +83,12 @@ public class PrintMojo extends CommonMojo {
         final TypeProcessorImpl typeProcessor = new TypeProcessorImpl(this, project);
         typeProcessor.execute();
         configBeans = typeProcessor.configBeans();
-        
+
         om = initOverrideManager();
         final OutputFormatter outputFormatter = chooseOutputFormatter(outputType);
         pw = getPrintWriter();
         indent = getAndAdjustIndent();
-        
+
         /*
          * Print header for this project only when we generate the first line
          * of other output.
@@ -107,9 +108,9 @@ public class PrintMojo extends CommonMojo {
             }
         }
         outputFormatter.preClose();
-        
+
         final StringBuilder trace = typeProcessor.trace();
-        
+
         if (trace != null) {
             getLog().debug(trace.toString());
         }
@@ -128,18 +129,18 @@ public class PrintMojo extends CommonMojo {
         restoreIndent(indent);
         pw.flush();
     }
-    
+
     private OverrideManager initOverrideManager()  {
         final File overrideFile = new File(project.getBasedir(), OVERRIDE_FILE);
         return new OverrideManager(overrideFile, getLog());
-        
+
     }
-    
+
     private boolean isLastProject() {
-        final List<MavenProject> projects = (List<MavenProject>) reactorProjects;
+        final List<MavenProject> projects = reactorProjects;
         return project.equals(projects.get(projects.size() - 1)) && isAnyOutput.get();
     }
-    
+
     <T> T getOrSet(final String propertyName, final T value) {
         T result = (T) getSessionProperties().get(propertyName);
         if (result == null){
@@ -148,8 +149,8 @@ public class PrintMojo extends CommonMojo {
         }
         return result;
     }
-    
-    
+
+
     private URI findParentOfTopURI() {
         File dir = project.getBasedir();
         File parentOfTopLevel = null;
@@ -163,7 +164,7 @@ public class PrintMojo extends CommonMojo {
         }
         return parentOfTopLevel.toURI();
     }
-    
+
     private Properties getSessionProperties() {
         return session.getUserProperties();
     }
@@ -181,7 +182,7 @@ public class PrintMojo extends CommonMojo {
         }
         return pw;
     }
-    
+
     private StringBuilder getAndAdjustIndent() {
         StringBuilder result = (StringBuilder) getSessionProperties().get(OUTPUT_INDENT_PROP_NAME);
         if (result == null) {
@@ -191,13 +192,13 @@ public class PrintMojo extends CommonMojo {
         getSessionProperties().put(OUTPUT_INDENT_PROP_NAME, result);
         return result;
     }
-    
+
     private void restoreIndent(StringBuilder indent) {
         if (indent.length() > 0) {
             indent.delete(indent.length() - 2, indent.length());
         }
     }
-    
+
     private OutputFormatter chooseOutputFormatter(final String outputType) {
         if (outputType.equals("summary")) {
             return new SummaryFormatter();
@@ -215,39 +216,44 @@ public class PrintMojo extends CommonMojo {
         void printCommandInfo(CommandAuthorizationInfo authInfo);
         void preClose();
     }
-    
+
     private class SummaryFormatter implements OutputFormatter {
 
+        @Override
         public void postOpen() {
             pw.println(indent.toString() + "=================================================================================");
             pw.println(indent.toString() + project.getName() + "(" + project.getBasedir() + ")");
             pw.println();
         }
 
+        @Override
         public void printCommandInfo(CommandAuthorizationInfo authInfo) {
             pw.println(indent.toString() + "  " + authInfo.toString(indent.toString() + "  ", true));
         }
-        
+
+        @Override
         public void preClose() {
         }
     }
-    
+
     private abstract class OneLineFormatter implements OutputFormatter {
-        
+
         private final String sep;
-        
+
         OneLineFormatter(final String sep) {
             this.sep = sep;
         }
-        
-        protected abstract void doPostOpen(); 
+
+        protected abstract void doPostOpen();
+
+        @Override
         public void postOpen() {
             if ( ! isAnyOutput.get()) {
                 doPostOpen();
                 isAnyOutput.set(true);
             }
         }
-        
+
         String lastPart(final String s) {
             final int lastSlash = s.lastIndexOf('/');
             if (lastSlash != -1) {
@@ -256,13 +262,14 @@ public class PrintMojo extends CommonMojo {
                 return s;
             }
         }
-        
+
+        @Override
         public void printCommandInfo(CommandAuthorizationInfo authInfo) {
             final StringBuilder prefix = new StringBuilder(sep)
                     .append(project.getName()).append(sep)
                     .append(parentOfTopURI.relativize(project.getBasedir().toURI()).toASCIIString()).append(sep)
                     .append(authInfo.name()).append(sep);
-            
+
             /*
              * If this command delegates its authorization to another class
              * then just report that class.
@@ -275,9 +282,9 @@ public class PrintMojo extends CommonMojo {
                         .append(sep);
                 pw.println(sb.toString());
             }
-            
+
             /*
-             * If this is from a generated CRUD command, display the 
+             * If this is from a generated CRUD command, display the
              * generic CRUD command info.
              */
             if ( ! authInfo.genericAction().isEmpty()) {
@@ -285,7 +292,7 @@ public class PrintMojo extends CommonMojo {
                  * If this is a create operation, then the action is an update
                  * on the resource's parent.
                  */
-                
+
 //                String subpath = authInfo.genericSubpath("/");
 //                String action = authInfo.genericAction();
 //                if (authInfo.genericAction().equals("create")) {
@@ -301,7 +308,7 @@ public class PrintMojo extends CommonMojo {
                     .append("CRUD").append(sep);
                 pw.println(sb.toString());
             }
-                
+
             for (RestEndpointInfo endpointInfo : authInfo.restEndpoints()) {
                 if ( ! endpointInfo.useForAuthorization()) {
                     continue;
@@ -311,14 +318,14 @@ public class PrintMojo extends CommonMojo {
                     getLog().error("Could not find config bean for RestEndpoint with config bean class name " + endpointInfo.configBeanClassName());
                     continue;
                 }
-                
+
                 final StringBuilder sb = new StringBuilder(prefix)
                         .append(configBean.fullPath()).append(sep)
                         .append(Util.restOpTypeToAction(endpointInfo.opType())).append(sep)
                         .append("ReST").append(sep);
                 pw.println(sb.toString());
             }
-            
+
             for (CommandAuthorizationInfo.ResourceAction ra : authInfo.resourceActionPairs()) {
                 final StringBuilder sb = new StringBuilder(prefix)
                         .append(ra.resource).append(sep)
@@ -326,7 +333,7 @@ public class PrintMojo extends CommonMojo {
                         .append(ra.origin).append(sep);
                 pw.println(sb.toString());
             }
-            
+
             /*
              * Handle if the command implements AccessCheckProvider.  We won't
              * try to figure out exactly what checks it provides, but we at
@@ -340,44 +347,45 @@ public class PrintMojo extends CommonMojo {
                 pw.println(sb.toString());
             }
         }
-        
+
         protected void doPreClose() {}
-        
+
+        @Override
         public void preClose() {
             if (isLastProject() && isAnyOutput.get()) {
                 doPreClose();
             }
         }
     }
-    
+
     private class WikiFormatter extends OneLineFormatter {
 
         WikiFormatter() {
             super(" | ");
         }
-        
+
         @Override
         public void doPostOpen() {
             pw.println("{table-plus}");
             pw.println("|| Module Name || Module Dir || Command Name || Resource || Action || Origin ||");
         }
-        
+
         @Override
         public void doPreClose() {
             pw.println("{table-plus}");
         }
     }
-    
+
     private class CSVFormatter extends OneLineFormatter {
-        
+
         CSVFormatter() {
             super(",");
         }
-        
+
         @Override
         public void doPostOpen() {
             pw.println("Module Name,Module Dir, Command Name,Resource,Action,Origin");
         }
     }
-    
+
 }
