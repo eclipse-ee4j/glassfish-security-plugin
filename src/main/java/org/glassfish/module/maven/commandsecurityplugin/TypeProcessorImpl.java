@@ -53,6 +53,8 @@ import org.glassfish.hk2.utilities.DescriptorImpl;
 import org.glassfish.module.maven.commandsecurityplugin.CommandAuthorizationInfo.Param;
 import org.objectweb.asm.Type;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * Verifies that all inhabitants in the module that are commands also take care
  * of authorization, issuing warnings or failing the build (configurable) if
@@ -102,11 +104,11 @@ public class TypeProcessorImpl implements TypeProcessor {
     private static final String GENERIC_DELETE_COMMAND = "org.glassfish.config.support.GenericDeleteCommand";
     private static final String GENERIC_LIST_COMMAND = "org.glassfish.config.support.GenericListCommand";
     private static final Set<String> GENERIC_CRUD_COMMAND_CLASS_NAMES =
-            new HashSet<String>(Arrays.asList(GENERIC_CREATE_COMMAND,
+            new HashSet<>(Arrays.asList(GENERIC_CREATE_COMMAND,
             GENERIC_DELETE_COMMAND,
             GENERIC_LIST_COMMAND));
 
-    private static final List<String> EXTENSION_INTERNAL_NAMES = new ArrayList<String>(Arrays.asList(
+    private static final List<String> EXTENSION_INTERNAL_NAMES = new ArrayList<>(Arrays.asList(
             "com/sun/enterprise/config/serverbeans/DomainExtension",
             "com/sun/enterprise/config/serverbeans/ConfigExtension",
             "com/oracle/cloudlogic/tenantmanager/entity/TenantExtension",
@@ -137,7 +139,7 @@ public class TypeProcessorImpl implements TypeProcessor {
 
     private Collection<CommandAuthorizationInfo> authInfosThisModule = new ArrayList<CommandAuthorizationInfo>();
 
-    private final List<String> offendingClassNames = new ArrayList<String>();
+    private final List<String> offendingClassNames = new ArrayList<>();
     private List<String> okClassNames = null;
 
     private Set<URL> jarsProcessedForConfigBeans = null;
@@ -199,7 +201,7 @@ public class TypeProcessorImpl implements TypeProcessor {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         this.trace = (getLog().isDebugEnabled() ? new StringBuilder() : null);
-        this.okClassNames = (getLog().isDebugEnabled() ? new ArrayList<String>() : null);
+        this.okClassNames = (getLog().isDebugEnabled() ? new ArrayList<>() : null);
 
         buildDir = new File(project.getBuild().getOutputDirectory());
         try {
@@ -231,18 +233,9 @@ public class TypeProcessorImpl implements TypeProcessor {
             authInfosThisModule.add(processType(i));
         }
 
-//        final Collection<Inhabitant> crudCommandInhabitants = findCRUDCommandInhabitants(inhabitants);
-//        for (Inhabitant i : crudCommandInhabitants) {
-//            final CommandAuthorizationInfo authInfo = processConfigBean(i);
-//            if (authInfo != null) {
-//                authInfosThisModule.add(authInfo);
-//            }
-//        }
-
         if (trace != null) {
             getLog().debug(trace.toString());
         }
-
     }
 
     private void loadConfigBeans() throws MalformedURLException, IOException {
@@ -268,9 +261,7 @@ public class TypeProcessorImpl implements TypeProcessor {
                 inhabitantsURL = new URL(url, fullURL);
             }
 
-
             try {
-
                 loadConfigBeans(url, inhabitantsURL);
             } catch (FileNotFoundException ex) {
                 // This must means that the JAR does not contain an inhabitants file.  Continue.
@@ -280,45 +271,49 @@ public class TypeProcessorImpl implements TypeProcessor {
     }
 
     private void loadConfigBeans(final URL url, final URL inhabitantsURL) throws IOException {
-        final InputStream is = new BufferedInputStream(inhabitantsURL.openStream());
         /*
          * As a side effect, findInhabitantsInModule adds config beans in the
          * specified input to configBeans.
          */
-        try {
-            Map<String,Inhabitant> preBeans =
-                    (isCheckAPIvsParse ? new HashMap<String,Inhabitant>(configBeans) : null);
-
-            final List<Inhabitant> inhabitants = findInhabitantsInModule(new BufferedReader(new InputStreamReader(is)));
-
-            if (isCheckAPIvsParse) {
-                Set<Inhabitant> beansAddedByNew = new HashSet<Inhabitant>(configBeans.values());
-                beansAddedByNew.removeAll(preBeans.values());
-
-                final InputStream isAgain = new BufferedInputStream(inhabitantsURL.openStream());
-                final List<Inhabitant> old = findInhabitantsInModule(new InputStreamReader(isAgain));
-                Set<Inhabitant> beansAddedByOld = new HashSet<Inhabitant>(configBeans.values());
-                beansAddedByOld.removeAll(preBeans.values());
-                if ( ! beansAddedByOld.equals(beansAddedByNew)) {
-                    Set<Inhabitant> beansAddedByNewNotOld = beansAddedByNew;
-                    beansAddedByNewNotOld.removeAll(beansAddedByOld);
-                    Set<Inhabitant> beansAddedByOldNotNew = beansAddedByOld;
-                    beansAddedByOldNotNew.removeAll(beansAddedByNew);
-                    throw new RuntimeException("Beans added mismatch for URL " + url.toExternalForm() + "\n  added by new not old: " + beansAddedByNewNotOld.toString() + "\n  added by old not new: " + beansAddedByOldNotNew.toString());
-                } else {
-                    getLog().info("ConfigBeans match for file " + url.toExternalForm());
-                }
-                if ( ! old.equals(inhabitants)) {
-                    Set<Inhabitant> inNewerNotInOld = new HashSet<Inhabitant>(inhabitants);
-                    inNewerNotInOld.removeAll(old);
-                    Set<Inhabitant> inOldNotInNewer = new HashSet<Inhabitant>(old);
-                    inOldNotInNewer.removeAll(inhabitants);
-                    throw new RuntimeException("Inhabitants mismatch for file " + inhabitantsURL.toExternalForm() + "\n  extra in old: " + inOldNotInNewer.toString() + "\n  extra in new: " + inNewerNotInOld.toString() );
-                }
-            }
-        } finally {
-            is.close();
+        final List<Inhabitant> inhabitants;
+        try (BufferedReader reader = new BufferedReader(
+            new InputStreamReader(new BufferedInputStream(inhabitantsURL.openStream()), UTF_8))) {
+            inhabitants = findInhabitantsInModule(reader);
         }
+        if (!isCheckAPIvsParse) {
+            return;
+        }
+        Map<String, Inhabitant> preBeans = new HashMap<>(configBeans);
+        Set<Inhabitant> beansAddedByNew = new HashSet<>(configBeans.values());
+        beansAddedByNew.removeAll(preBeans.values());
+
+        final List<Inhabitant> old;
+        try (InputStreamReader reader = new InputStreamReader(new BufferedInputStream(inhabitantsURL.openStream()), UTF_8)) {
+            old = findInhabitantsInModule(reader);
+        }
+        Set<Inhabitant> beansAddedByOld = new HashSet<>(configBeans.values());
+        beansAddedByOld.removeAll(preBeans.values());
+        if (beansAddedByOld.equals(beansAddedByNew)) {
+            getLog().info("ConfigBeans match for file " + url.toExternalForm());
+        } else {
+            Set<Inhabitant> beansAddedByNewNotOld = beansAddedByNew;
+            beansAddedByNewNotOld.removeAll(beansAddedByOld);
+            Set<Inhabitant> beansAddedByOldNotNew = beansAddedByOld;
+            beansAddedByOldNotNew.removeAll(beansAddedByNew);
+            throw new RuntimeException("Beans added mismatch for URL " + url.toExternalForm()
+                + "\n  added by new not old: " + beansAddedByNewNotOld.toString() + "\n  added by old not new: "
+                + beansAddedByOldNotNew.toString());
+        }
+        if (old.equals(inhabitants)) {
+            return;
+        }
+        Set<Inhabitant> inNewerNotInOld = new HashSet<>(inhabitants);
+        inNewerNotInOld.removeAll(old);
+        Set<Inhabitant> inOldNotInNewer = new HashSet<>(old);
+        inOldNotInNewer.removeAll(inhabitants);
+        throw new RuntimeException(
+            "Inhabitants mismatch for file " + inhabitantsURL.toExternalForm() + "\n  extra in old: "
+                + inOldNotInNewer.toString() + "\n  extra in new: " + inNewerNotInOld.toString());
     }
 
     @Override
@@ -441,32 +436,7 @@ public class TypeProcessorImpl implements TypeProcessor {
 
     }
 
-//    public CommandAuthorizationInfo processConfigBean(final Inhabitant configBean) throws MojoFailureException, MojoExecutionException {
-//        /*
-//         * Find the byte code for this class so we can analyze it.
-//         */
-//        final String internalClassName = configBean.configBeanClassName;
-//        final String resourcePath = internalClassName.replace('.','/') + ".class";
-//        final InputStream is = loader.getResourceAsStream(resourcePath);
-//        if (is == null) {
-//            throw new MojoFailureException("Cannot locate byte code for inhabitant class " + resourcePath);
-//        }
-//        try {
-//
-//        } catch (Exception ex) {
-//            throw new MojoExecutionException("Error analyzing " + internalClassName, ex);
-//        } finally {
-//            if (is != null) {
-//                try {
-//                    is.close();
-//                } catch (IOException ex) {
-//                    getLog().warn("Error closing input stream for " + internalClassName + "; " + ex.getLocalizedMessage());
-//                }
-//            }
-//        }
-//    }
-
-    private void setUpKnownTypes() throws InstantiationException, IllegalAccessException {
+    private void setUpKnownTypes() {
         knownCommandTypes = getOrCreate(KNOWN_AUTH_TYPES_NAME, knownCommandTypes);
         knownNonCommandTypes = getOrCreate(KNOWN_NONCOMMAND_TYPES_NAME, knownNonCommandTypes);
         jarsProcessedForConfigBeans = getOrCreate(PROCESSED_MODULES_NAME, jarsProcessedForConfigBeans);
@@ -504,21 +474,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         return result;
     }
 
-//    private Collection<Inhabitant> findCRUDCommandInhabitants(final Collection<Inhabitant> inhabitants) {
-//        final List<Inhabitant> result = new ArrayList<Inhabitant>();
-//        for (Inhabitant inh : inhabitants) {
-//            if (inh.contracts.contains(CONFIG_INJECTOR_NAME)) {
-//                if (trace != null) {
-//                    trace.append(LINE_SEP).append(" Inhabitant ").append(inh.metadataTarget).append(" seems to be a ConfigBean");
-//                }
-//                result.add(inh);
-//            }
-//        }
-//        return result;
-//    }
-
     private Properties getSessionProperties() {
-//        return session.getUserProperties();
         return shared;
     }
 
@@ -534,39 +490,50 @@ public class TypeProcessorImpl implements TypeProcessor {
     }
 
     private List<Inhabitant> findInhabitantsInModule(final File inhabFile) throws FileNotFoundException, IOException {
-        if ( ! inhabFile.canRead()) {
+        if (!inhabFile.canRead()) {
             getLog().debug("Cannot read " + inhabFile.getAbsolutePath());
-            return Collections.EMPTY_LIST;
+            return Collections.emptyList();
         }
 
-        Map<String,Inhabitant> preBeans = (isCheckAPIvsParse ? new HashMap<String,Inhabitant>(configBeans) : null);
-
-        final List<Inhabitant> inhabitants = findInhabitantsInModule(new BufferedReader(new InputStreamReader(new BufferedInputStream(new FileInputStream(inhabFile)))));
-        if (isCheckAPIvsParse) {
-            final List<Inhabitant> old = findInhabitantsInModule(new InputStreamReader(new BufferedInputStream(new FileInputStream(inhabFile))));
-            final Set<Inhabitant> beansAddedByOld = new HashSet<Inhabitant>(configBeans.values());
-            beansAddedByOld.removeAll(preBeans.values());
-
-            final Set<Inhabitant> beansAddedByNew = new HashSet<Inhabitant>(configBeans.values());
-            beansAddedByNew.removeAll(preBeans.values());
-            if ( ! beansAddedByOld.equals(beansAddedByNew)) {
-                final Set<Inhabitant> beansAddedByNewNotOld = beansAddedByNew;
-                beansAddedByNewNotOld.removeAll(beansAddedByOld);
-                final Set<Inhabitant> beansAddedByOldNotNew = beansAddedByOld;
-                beansAddedByOldNotNew.removeAll(beansAddedByNew);
-                throw new RuntimeException("Beans added mismatch for URL " + inhabFile.getAbsolutePath()+ "\n  added by new not old: " + beansAddedByNewNotOld.toString() + "\n  added by old not new: " + beansAddedByOldNotNew.toString());
-            } else {
-                getLog().info("ConfigBeans match for file " + inhabFile.getAbsolutePath());
-            }
-            if ( ! old.equals(inhabitants)) {
-                final Set<Inhabitant> inNewerNotInOld = new HashSet<Inhabitant>(inhabitants);
-                inNewerNotInOld.removeAll(old);
-                final Set<Inhabitant> inOldNotInNewer = new HashSet<Inhabitant>(old);
-                inOldNotInNewer.removeAll(inhabitants);
-                throw new RuntimeException("Inhabitants mismatch for file " + inhabFile.getAbsolutePath() + "\n  extra in old: " + inOldNotInNewer.toString() + "\n  extra in new: " + inNewerNotInOld.toString() );
-            }
+        final List<Inhabitant> inhabitants;
+        try (BufferedReader reader = new BufferedReader(
+            new InputStreamReader(new BufferedInputStream(new FileInputStream(inhabFile)), UTF_8))) {
+            inhabitants = findInhabitantsInModule(reader);
         }
-        return inhabitants;
+        if (!isCheckAPIvsParse) {
+            return inhabitants;
+        }
+        final Map<String,Inhabitant> preBeans = new HashMap<>(configBeans);
+        final List<Inhabitant> old;
+        try (InputStreamReader reader = new InputStreamReader(new BufferedInputStream(new FileInputStream(inhabFile)), UTF_8)) {
+            old = findInhabitantsInModule(reader);
+        }
+        final Set<Inhabitant> beansAddedByOld = new HashSet<>(configBeans.values());
+        beansAddedByOld.removeAll(preBeans.values());
+
+        final Set<Inhabitant> beansAddedByNew = new HashSet<>(configBeans.values());
+        beansAddedByNew.removeAll(preBeans.values());
+        if (beansAddedByOld.equals(beansAddedByNew)) {
+            getLog().info("ConfigBeans match for file " + inhabFile.getAbsolutePath());
+        } else {
+            final Set<Inhabitant> beansAddedByNewNotOld = beansAddedByNew;
+            beansAddedByNewNotOld.removeAll(beansAddedByOld);
+            final Set<Inhabitant> beansAddedByOldNotNew = beansAddedByOld;
+            beansAddedByOldNotNew.removeAll(beansAddedByNew);
+            throw new RuntimeException("Beans added mismatch for URL " + inhabFile.getAbsolutePath()
+                + "\n  added by new not old: " + beansAddedByNewNotOld.toString() + "\n  added by old not new: "
+                + beansAddedByOldNotNew.toString());
+        }
+        if (old.equals(inhabitants)) {
+            return inhabitants;
+        }
+        final Set<Inhabitant> inNewerNotInOld = new HashSet<>(inhabitants);
+        inNewerNotInOld.removeAll(old);
+        final Set<Inhabitant> inOldNotInNewer = new HashSet<>(old);
+        inOldNotInNewer.removeAll(inhabitants);
+        throw new RuntimeException(
+            "Inhabitants mismatch for file " + inhabFile.getAbsolutePath() + "\n  extra in old: "
+                + inOldNotInNewer.toString() + "\n  extra in new: " + inNewerNotInOld.toString());
     }
 
     private List<Inhabitant> findInhabitantsInModule(final BufferedReader br) throws IOException {
@@ -574,7 +541,7 @@ public class TypeProcessorImpl implements TypeProcessor {
         DescriptorImpl di;
         while ((di = new DescriptorImpl()).readObject(br)) {
             final Inhabitant inhabitant = new Inhabitant(di.getImplementation());
-            inhabitant.contracts = new ArrayList<String>(di.getAdvertisedContracts());
+            inhabitant.contracts = new ArrayList<>(di.getAdvertisedContracts());
             inhabitant.serviceName = di.getName();
             inhabitant.methodListActual = getFirstIfAny(di.getMetadata(), "MethodListActual");
             inhabitant.methodName = getFirstIfAny(di.getMetadata(), "MethodName");
@@ -664,7 +631,6 @@ public class TypeProcessorImpl implements TypeProcessor {
             }
             result.add(inhabitant);
         }
-        br.close();
         return result;
     }
 
@@ -733,12 +699,9 @@ public class TypeProcessorImpl implements TypeProcessor {
 
     private String getFirstIfAny(final Map<String,List<String>> map, final String key) {
         final List<String> values = map.get(key);
-        if (values != null && values.size() > 0) {
-            return values.get(0);
-        } else {
-            return null;
-        }
+        return values == null || values.isEmpty() ? null : values.get(0);
     }
+
     private List<Inhabitant> findInhabitantsInModule(final Reader r) throws IOException {
 
         /*
@@ -760,12 +723,6 @@ public class TypeProcessorImpl implements TypeProcessor {
         String line;
 
         String implClassName;
-//        String methodListActual = null;
-//        String methodName = null;
-//        String parentConfigured = null;
-
-//        List<String> contracts = new ArrayList<String>();
-//        String serviceName = null;
 
         /*
          * This Inhabitant accumulates information from several successive
@@ -775,207 +732,126 @@ public class TypeProcessorImpl implements TypeProcessor {
          */
         Inhabitant inhabitant = null;
 
-        try {
-            while ((line = rdr.readLine()) != null) {
-                final int commentSlot = line.indexOf('#');
-                if (commentSlot != -1) {
-                    line = line.substring(0, commentSlot);
-                }
-                line = line.trim();
-                if (line.isEmpty()) {
-                    inhabitant = null;
-                    continue;
-                }
+        while ((line = rdr.readLine()) != null) {
+            final int commentSlot = line.indexOf('#');
+            if (commentSlot != -1) {
+                line = line.substring(0, commentSlot);
+            }
+            line = line.trim();
+            if (line.isEmpty()) {
+                inhabitant = null;
+                continue;
+            }
 
-                final Matcher implClassNameMatcher = INHABITANT_IMPL_CLASS_PATTERN.matcher(line);
-                if (implClassNameMatcher.matches()) {
-                    implClassName = implClassNameMatcher.group(1);
-                    getLog().debug("Detected start of inhabitant: " + implClassName);
-//                    inhabitant = configBeans.get(implClassName);
-//                    if (inhabitant == null) {
-//                        inhabitant = new Inhabitant(implClassName);
-//                    }
-                    /*
-                     * Add the inhabitant to the result as soon as we start
-                     * processing it.
-                     */
-                    inhabitant = new Inhabitant(implClassName);
-                    result.add(inhabitant);
+            final Matcher implClassNameMatcher = INHABITANT_IMPL_CLASS_PATTERN.matcher(line);
+            if (implClassNameMatcher.matches()) {
+                implClassName = implClassNameMatcher.group(1);
+                getLog().debug("Detected start of inhabitant: " + implClassName);
+
+                inhabitant = new Inhabitant(implClassName);
+                result.add(inhabitant);
+            } else {
+                final Matcher contractsMatcher = INHABITANT_CONTRACTS_PATTERN.matcher(line);
+                if (contractsMatcher.matches()) {
+                    inhabitant.contracts.addAll(Arrays.asList(contractsMatcher.group(1).split(",")));
                 } else {
-                    final Matcher contractsMatcher = INHABITANT_CONTRACTS_PATTERN.matcher(line);
-                    if (contractsMatcher.matches()) {
-                        inhabitant.contracts.addAll(Arrays.asList(contractsMatcher.group(1).split(",")));
+                    final Matcher nameMatcher = INHABITANT_NAME_PATTERN.matcher(line);
+                    if (nameMatcher.matches()) {
+                        inhabitant.serviceName = nameMatcher.group(1);
                     } else {
-                        final Matcher nameMatcher = INHABITANT_NAME_PATTERN.matcher(line);
-                        if (nameMatcher.matches()) {
-                            inhabitant.serviceName = nameMatcher.group(1);
-                        } else {
-                            if (GENERIC_CRUD_COMMAND_CLASS_NAMES.contains(inhabitant.className)) {
-                                final Matcher genericInfoMatcher = GENERIC_COMMAND_INFO_PATTERN.matcher(line);
-                                if (genericInfoMatcher.matches()) {
-                                    inhabitant.methodListActual = genericInfoMatcher.group(1);
-                                    inhabitant.methodName = genericInfoMatcher.group(2);
-                                    inhabitant.parentConfigured = genericInfoMatcher.group(3);
-                                    getLog().debug("Recognized generic command " + inhabitant.serviceName);
-                                    inhabitant.action = genericCommandNameToAction.get(inhabitant.className);
-                                    Inhabitant configBeanParent = configBeans.get(inhabitant.parentConfigured);
-                                    if (configBeanParent == null) {
-                                        configBeanParent = new Inhabitant(inhabitant.parentConfigured);
-                                        configBeans.put(configBeanParent.className, configBeanParent);
-                                        getLog().debug("Created parent bean " + configBeanParent.className + " for target bean " + inhabitant.methodListActual);
-                                    } else {
-                                        getLog().debug("Found parent bean " + configBeanParent.className + " for target bean " + inhabitant.methodListActual);
-                                    }
-
-                                    Inhabitant configBean = configBeans.get(inhabitant.methodListActual);
-                                    if (configBean == null) {
-                                        configBean = new Inhabitant(inhabitant.methodListActual);
-                                        configBeans.put(configBean.className, configBean);
-                                        getLog().debug("Created new config bean for " + configBean.className);
-                                    } else {
-                                        getLog().debug("Found existing config bean for " + configBean.className);
-                                    }
-                                    configBean.parent = configBeanParent;
-                                    inhabitant.configBeanForCommand = configBean;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                /*
-                 * If the previously-found contracts include ConfigInjector then
-                 * this is a config bean.  Try matching the config bean metadata.
-                 */
-                final Matcher configBeanPrefixMatcher = CONFIG_BEAN_METADATA_PREFIX_PATTERN.matcher(line);
-                if (configBeanPrefixMatcher.matches()) {
-                    final String configBeanClassName = configBeanPrefixMatcher.group(1);
-                    getLog().debug("Recognized " + configBeanClassName + " as a config bean");
-                    Inhabitant configBean = configBeans.get(configBeanClassName);
-                    if (configBean == null) {
-                        configBean = new Inhabitant(configBeanClassName);
-                        configBeans.put(configBeanClassName, configBean);
-                    }
-
-                    /*
-                     * If the prefix has a group 2 then that is the part we
-                     * need to parse for children.
-                     */
-                    final String restOfLine = configBeanPrefixMatcher.group(2);
-                    if ( restOfLine != null &&
-                            restOfLine.length() > 0) {
-                        final Matcher configBeanChildMatcher =
-                                CONFIG_BEAN_CHILD_PATTERN.matcher(restOfLine);
-                        while (configBeanChildMatcher.find()) {
-                            /*
-                             * Make sure we have group 1.  Otherwise we matched
-                             * one of the variants that we are not interested in
-                             * (such as an attribute declaration).
-                             */
-                            if (configBeanChildMatcher.groupCount() > 0 && configBeanChildMatcher.group(1) != null) {
-                                final String childClassName = configBeanChildMatcher.group(2);
-                                final String subpathInParent = configBeanChildMatcher.group(1);
-                                getLog().debug("Identified " + childClassName + " as child " + subpathInParent + " of " + configBean.className);
-                                Inhabitant childInh = configBeans.get(childClassName);
-                                if (childInh == null) {
-                                    childInh = new Inhabitant(childClassName);
-                                    configBeans.put(childClassName, childInh);
-                                    getLog().debug("Added child inhabitant to configBeans");
+                        if (GENERIC_CRUD_COMMAND_CLASS_NAMES.contains(inhabitant.className)) {
+                            final Matcher genericInfoMatcher = GENERIC_COMMAND_INFO_PATTERN.matcher(line);
+                            if (genericInfoMatcher.matches()) {
+                                inhabitant.methodListActual = genericInfoMatcher.group(1);
+                                inhabitant.methodName = genericInfoMatcher.group(2);
+                                inhabitant.parentConfigured = genericInfoMatcher.group(3);
+                                getLog().debug("Recognized generic command " + inhabitant.serviceName);
+                                inhabitant.action = genericCommandNameToAction.get(inhabitant.className);
+                                Inhabitant configBeanParent = configBeans.get(inhabitant.parentConfigured);
+                                if (configBeanParent == null) {
+                                    configBeanParent = new Inhabitant(inhabitant.parentConfigured);
+                                    configBeans.put(configBeanParent.className, configBeanParent);
+                                    getLog().debug("Created parent bean " + configBeanParent.className + " for target bean " + inhabitant.methodListActual);
                                 } else {
-                                    getLog().debug("Found child as previously-defined config bean");
+                                    getLog().debug("Found parent bean " + configBeanParent.className + " for target bean " + inhabitant.methodListActual);
                                 }
-                                getLog().debug("Assigning " + configBean.className + " as parent of " + childInh.className);
-                                childInh.parent = configBean;
 
-                                if (configBean.children == null) {
-                                    configBean.children = new HashMap<String,Child>();
+                                Inhabitant configBean = configBeans.get(inhabitant.methodListActual);
+                                if (configBean == null) {
+                                    configBean = new Inhabitant(inhabitant.methodListActual);
+                                    configBeans.put(configBean.className, configBean);
+                                    getLog().debug("Created new config bean for " + configBean.className);
+                                } else {
+                                    getLog().debug("Found existing config bean for " + configBean.className);
                                 }
-                                Child child = configBean.children.get(childClassName);
-                                if (child == null) {
-                                    child = new Child(subpathInParent);
-                                    configBean.children.put(childClassName, child);
-                                    getLog().debug("Adding config bean " + childClassName + " as child " + subpathInParent + " to config bean " + configBean.className);
-                                }
+                                configBean.parent = configBeanParent;
+                                inhabitant.configBeanForCommand = configBean;
                             }
                         }
                     }
                 }
             }
-//                /*
-//                 * See if this named inhabitant already exists among the config
-//                 * beans we know about.
-//                 */
-//                Inhabitant configBean = configBeans.get(inhabitant.className);
-//                if (configBean == null) {
-//                    configBean = new Inhabitant(implClassName, contracts, serviceName,
-//                        methodListActual, methodName, parentConfigured);
-//                    result.add(configBean);
-//                } else {
-//                    configBean.set(contracts, serviceName, methodListActual, methodName, parentConfigured);
-//                    Inhabitant parent = configBeans.get(parentConfigured);
-//                    if (parent == null) {
-//                        parent = new Inhabitant(parentConfigured);
-//                        configBeans.put(parentConfigured, parent);
-//                    }
-//                    configBean.parent = parent;
-//                }
-        } finally {
-            rdr.close();
+
+            /*
+             * If the previously-found contracts include ConfigInjector then
+             * this is a config bean.  Try matching the config bean metadata.
+             */
+            final Matcher configBeanPrefixMatcher = CONFIG_BEAN_METADATA_PREFIX_PATTERN.matcher(line);
+            if (configBeanPrefixMatcher.matches()) {
+                final String configBeanClassName = configBeanPrefixMatcher.group(1);
+                getLog().debug("Recognized " + configBeanClassName + " as a config bean");
+                Inhabitant configBean = configBeans.get(configBeanClassName);
+                if (configBean == null) {
+                    configBean = new Inhabitant(configBeanClassName);
+                    configBeans.put(configBeanClassName, configBean);
+                }
+
+                /*
+                 * If the prefix has a group 2 then that is the part we
+                 * need to parse for children.
+                 */
+                final String restOfLine = configBeanPrefixMatcher.group(2);
+                if ( restOfLine != null &&
+                    restOfLine.length() > 0) {
+                    final Matcher configBeanChildMatcher =
+                        CONFIG_BEAN_CHILD_PATTERN.matcher(restOfLine);
+                    while (configBeanChildMatcher.find()) {
+                        /*
+                         * Make sure we have group 1.  Otherwise we matched
+                         * one of the variants that we are not interested in
+                         * (such as an attribute declaration).
+                         */
+                        if (configBeanChildMatcher.groupCount() > 0 && configBeanChildMatcher.group(1) != null) {
+                            final String childClassName = configBeanChildMatcher.group(2);
+                            final String subpathInParent = configBeanChildMatcher.group(1);
+                            getLog().debug("Identified " + childClassName + " as child " + subpathInParent + " of " + configBean.className);
+                            Inhabitant childInh = configBeans.get(childClassName);
+                            if (childInh == null) {
+                                childInh = new Inhabitant(childClassName);
+                                configBeans.put(childClassName, childInh);
+                                getLog().debug("Added child inhabitant to configBeans");
+                            } else {
+                                getLog().debug("Found child as previously-defined config bean");
+                            }
+                            getLog().debug("Assigning " + configBean.className + " as parent of " + childInh.className);
+                            childInh.parent = configBean;
+
+                            if (configBean.children == null) {
+                                configBean.children = new HashMap<String,Child>();
+                            }
+                            Child child = configBean.children.get(childClassName);
+                            if (child == null) {
+                                child = new Child(subpathInParent);
+                                configBean.children.put(childClassName, child);
+                                getLog().debug("Adding config bean " + childClassName + " as child " + subpathInParent + " to config bean " + configBean.className);
+                            }
+                        }
+                    }
+                }
+            }
         }
         return result;
     }
-
-//    private List<Inhabitant> findInhabitantsInModule() throws IOException {
-//        /*
-//         * class=com.sun.enterprise.admin.cli.LoginCommand,index=com.sun.enterprise.admin.cli.CLICommand:login
-//         */
-//        final File inhabFile = new File(buildDir, INHABITANTS_PATH);
-//        if ( ! inhabFile.canRead()) {
-//            return Collections.EMPTY_LIST;
-//        }
-//
-//        final List<Inhabitant> result = new ArrayList<Inhabitant>();
-//
-//        final LineNumberReader rdr = new LineNumberReader(new InputStreamReader(new BufferedInputStream(new FileInputStream(inhabFile))));
-//
-//        String line;
-//
-//        try {
-//            while ((line = rdr.readLine()) != null) {
-//                final int commentSlot = line.indexOf('#');
-//                if (commentSlot != -1) {
-//                    line = line.substring(0, commentSlot);
-//                }
-//                line.trim();
-//                if (line.isEmpty()) {
-//                    continue;
-//                }
-//                String className = null;
-//                final List<HK2_Index> indexes = new ArrayList<HK2_Index>();
-//
-//                final String[] segments = line.split(",");
-//                for (String segment : segments) {
-//                    final Matcher m = INHABITANT_DESCR_PATTERN.matcher(segment);
-//                    if (m.matches()) {
-//                        if (m.group(1).equals("class")) {
-//                            className = m.group(2);
-//                        } else if (m.group(1).equals("index")) {
-//                            indexes.add(new HK2_Index(m.group(2), m.groupCount() < 3 ? null : m.group(3)));
-//                        } else {
-//                            getLog().debug("Weird: scanning line '" + line + "' groups are " + m.group(1) + ", " + m.group(2) + (m.groupCount() < 3 ? "" : ", " + m.group(3)));
-//                        }
-//                    }
-//                }
-//                result.add(new Inhabitant(className, indexes));
-//                if (trace != null) {
-//                    trace.append(LINE_SEP).append("Adding inhabitant ").append(className);
-//                }
-//            }
-//        } finally {
-//            rdr.close();
-//        }
-//        return result;
-//    }
 
     private URLClassLoader createClassLoader() throws MojoExecutionException {
         final List<String> compileClasspathElements;
@@ -1028,8 +904,7 @@ public class TypeProcessorImpl implements TypeProcessor {
 
     public class Inhabitant {
 
-        private List<String> contracts = new ArrayList<String>();
-//        private final Map<String,String> indexes = new HashMap<String,String>();
+        private List<String> contracts = new ArrayList<>();
 
         private boolean isFilledIn = false;
         private String className;
@@ -1133,9 +1008,6 @@ public class TypeProcessorImpl implements TypeProcessor {
             return "Inhabitant: " + className + " @Service(\"" + serviceName + "\")\n";
         }
 
-
-
-
         boolean isFilledIn() {
             return isFilledIn;
         }
@@ -1176,17 +1048,6 @@ public class TypeProcessorImpl implements TypeProcessor {
             }
             return path.toString();
         }
-
-//        private static String chooseAction(final String className) {
-//            if (className.contains("Create")) {
-//                return "create";
-//            } else if (className.contains("Delete")) {
-//                return "delete";
-//            } else if (className.contains("List")) {
-//                return "list";
-//            }
-//            return "????";
-//        }
     }
 
     static class Child {
@@ -1196,45 +1057,4 @@ public class TypeProcessorImpl implements TypeProcessor {
             this.subpathInParent = subpathInParent;
         }
     }
-
-//    static class ConfigBeanInhabitant  {
-//
-//
-//        private final String beanName;
-//        private String metadataTarget = null;
-//
-//        private ConfigBeanInhabitant(final String beanName, final List<String> contracts, final String name) {
-//            this.beanName = beanName;
-//        }
-//        private static String findTarget(final String metadata) {
-//            if (metadata == null) {
-//                return null;
-//            }
-//            String result = null;
-//            final Matcher m = CONFIG_BEAN_NAME_PATTERN.matcher(metadata);
-//            if (m.matches()) {
-//                result = m.group(1);
-//            }
-//            return result;
-//        }
-////        private Inhabitant(final String className, final List<HK2_Index> indexes) {
-////            this.className = className;
-////            for (HK2_Index i : indexes) {
-////                this.indexes.put(i.indexName, i.serviceName);
-////            }
-////        }
-//    }
-
-//    private static  class HK2_Index {
-//        private String indexName;
-//        private String serviceName;
-//
-//        private HK2_Index(final String indexName, final String serviceName) {
-//            this.indexName = indexName;
-//            this.serviceName = serviceName;
-//        }
-//    }
-
-
-
 }
