@@ -30,7 +30,7 @@
 
     <groupId>org.glassfish.build</groupId>
     <artifactId>command-security-maven-plugin</artifactId>
-    <version>1.0.22-SNAPSHOT</version>
+    <version>1.0.23-SNAPSHOT</version>
     <packaging>maven-plugin</packaging>
 
     <name>Eclipse GlassFish Command Security Maven Plugin</name>
